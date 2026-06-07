@@ -52,6 +52,26 @@ def create_expense():
     return jsonify(new_expense.to_dict()), 201
 
 
+@expenses_bp.patch("/<expense_id>")
+@login_required
+def patch_expense(expense_id: str):
+    """支出の一部を更新する（未分類のカテゴリ設定などで使用）"""
+    body = request.get_json() or {}
+    fields = {}
+    # 更新を許可するフィールドのみ受け付ける
+    for key in ("date", "category", "payment_method", "memo"):
+        if key in body and body[key] is not None:
+            fields[key] = body[key]
+    if "amount" in body and body["amount"] is not None:
+        fields["amount"] = int(body["amount"])
+    if not fields:
+        return jsonify({"detail": "更新項目がありません"}), 400
+
+    if not db.update_expense(expense_id, fields):
+        return jsonify({"detail": "支出データが見つかりません"}), 404
+    return jsonify({"ok": True, **fields})
+
+
 @expenses_bp.delete("/<expense_id>")
 @login_required
 def remove_expense(expense_id: str):

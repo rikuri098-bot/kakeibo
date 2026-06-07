@@ -1,9 +1,15 @@
 """
 データモデル定義
-dataclassを使ってシンプルに管理する（Python 3.14対応・外部依存なし）
+dataclassでシンプルに管理する（Python 3.14対応・外部依存なし）
+Supabaseが返す created_at など余分なカラムは from_dict で自動的に無視する。
 """
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass, fields
+
+
+def _from_dict(cls, data: dict):
+    """共通: 既知のフィールドだけ拾ってインスタンス化する"""
+    allowed = {f.name for f in fields(cls)}
+    return cls(**{k: v for k, v in data.items() if k in allowed})
 
 
 @dataclass
@@ -17,24 +23,55 @@ class Expense:
     memo: str = ""          # メモ（任意）
 
     def to_dict(self) -> dict:
-        """dictに変換（JSON保存・レスポンス用）"""
         return {
-            "id": self.id,
-            "date": self.date,
-            "amount": self.amount,
-            "category": self.category,
-            "payment_method": self.payment_method,
+            "id": self.id, "date": self.date, "amount": self.amount,
+            "category": self.category, "payment_method": self.payment_method,
             "memo": self.memo,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Expense":
-        """dictからExpenseを生成（JSON/Supabase読み込み用）
+        return _from_dict(cls, data)
 
-        created_at などモデルに無い余分なカラムは無視する。
-        （Supabaseは return=representation で created_at も返すため）
-        """
-        from dataclasses import fields
-        allowed = {f.name for f in fields(cls)}
-        filtered = {k: v for k, v in data.items() if k in allowed}
-        return cls(**filtered)
+
+@dataclass
+class Category:
+    """ユーザー定義カテゴリ"""
+    id: str
+    name: str                   # カテゴリ名（例: 食費）
+    emoji: str = "📦"           # 絵文字アイコン
+    color: str = "#9ca3af"      # 表示色（hex）
+    sort_order: int = 0         # 並び順
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "name": self.name, "emoji": self.emoji,
+            "color": self.color, "sort_order": self.sort_order,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Category":
+        return _from_dict(cls, data)
+
+
+@dataclass
+class Shortcut:
+    """よく使う支出のワンタップ・ショートカット"""
+    id: str
+    label: str                      # 表示ラベル（例: コンビニ）
+    amount: int = 0                 # 既定金額（0なら入力時に確認）
+    category: str = ""              # カテゴリ
+    payment_method: str = "PayPay"  # 支払い方法
+    memo: str = ""                  # メモ
+    sort_order: int = 0             # 並び順
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "label": self.label, "amount": self.amount,
+            "category": self.category, "payment_method": self.payment_method,
+            "memo": self.memo, "sort_order": self.sort_order,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Shortcut":
+        return _from_dict(cls, data)

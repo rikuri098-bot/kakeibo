@@ -2,392 +2,978 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>家計簿アプリ</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .fade-in { animation: fadeIn 0.2s ease-out; }
-
-    /* スマホでのタップ領域を確保 */
-    @media (max-width: 640px) {
-      .tap-target { min-height: 48px; }
-    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px);} to {opacity:1; transform:translateY(0);} }
+    .fade-in { animation: fadeIn .2s ease-out; }
+    @media (max-width:640px){ .tap-target { min-height:48px; } }
+    /* ボトムシートのスライドアップ */
+    .sheet { transition: transform .25s ease-out; }
+    .sheet-hidden { transform: translateY(100%); }
+    /* FABのフェード */
+    #fab { transition: opacity .2s, transform .2s; }
+    #fab.hidden { opacity:0; transform:scale(.6); pointer-events:none; display:flex; }
+    /* 入力中の拡大を防ぐ */
+    input, select, textarea { font-size:16px; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen text-gray-800">
+<body class="bg-gray-50 min-h-screen text-gray-800 pb-24">
 
-  <!-- ナビゲーションバー -->
-  <nav class="bg-white border-b border-gray-100 sticky top-0 z-10">
-    <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+  <!-- 上部アプリバー -->
+  <header class="bg-white border-b border-gray-100 sticky top-0 z-20">
+    <div class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="text-xl">💰</span>
-        <span class="font-bold text-indigo-600 text-lg">家計簿</span>
+        <span class="font-bold text-indigo-600 text-lg" id="app-title">家計簿</span>
       </div>
-      <div class="flex items-center gap-3">
-        <!-- CSVインポートボタン -->
-        <label
-          for="csv-upload"
-          class="cursor-pointer flex items-center gap-1.5 text-sm text-gray-500
-                 hover:text-indigo-600 transition px-3 py-2 rounded-lg hover:bg-indigo-50
-                 tap-target"
-          title="PayPayカードCSVをインポート">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
-               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"/>
+      <div class="flex items-center gap-1">
+        <!-- CSVインポート -->
+        <label for="csv-upload"
+          class="cursor-pointer flex items-center justify-center w-10 h-10 rounded-lg
+                 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition" title="CSVインポート">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"/>
           </svg>
-          <span class="hidden sm:inline">CSVインポート</span>
         </label>
         <input id="csv-upload" type="file" accept=".csv" class="hidden" onchange="importCSV(this)" />
-
-        <!-- ログアウトボタン -->
-        <a href="/logout"
-           class="flex items-center gap-1.5 text-sm text-gray-500
-                  hover:text-red-500 transition px-3 py-2 rounded-lg hover:bg-red-50
-                  tap-target">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
-               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        <!-- カテゴリ設定 -->
+        <button onclick="openCategoryModal()"
+          class="flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition" title="カテゴリ編集">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
-          <span class="hidden sm:inline">ログアウト</span>
+        </button>
+        <!-- ログアウト -->
+        <a href="/logout"
+          class="flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 transition" title="ログアウト">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          </svg>
         </a>
       </div>
     </div>
-  </nav>
+  </header>
 
-  <!-- メインコンテンツ -->
-  <div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+  <!-- トースト -->
+  <div id="toast" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50
+       bg-gray-800 text-white text-sm px-5 py-3 rounded-full shadow-lg fade-in whitespace-nowrap"></div>
 
-    <!-- CSVインポート結果トースト -->
-    <div id="toast" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-50
-                           bg-gray-800 text-white text-sm px-5 py-3 rounded-full shadow-lg
-                           fade-in whitespace-nowrap">
-    </div>
+  <main class="max-w-2xl mx-auto px-4 py-5">
 
-    <!-- ① 当月サマリー -->
-    <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <!-- ============================ ホーム ============================ -->
+    <section id="view-home" class="space-y-5">
 
-      <!-- 合計カード -->
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">当月合計</p>
-        <p id="monthly-total" class="text-4xl font-bold text-indigo-600 mt-2">¥0</p>
-        <p id="monthly-label" class="text-xs text-gray-400 mt-1"></p>
+      <!-- 常設・即入力フォーム -->
+      <div id="home-form-card" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <p class="text-sm font-semibold text-gray-700 mb-3">✏️ 支出を入力</p>
+        <div id="home-form-mount"></div>
       </div>
 
-      <!-- カテゴリ別カード -->
+      <!-- ワンタップ・ショートカット -->
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-3">カテゴリ別</p>
-        <ul id="category-summary" class="space-y-1.5 text-sm"></ul>
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-sm font-semibold text-gray-700">⚡ よく使う支出</p>
+          <button id="shortcut-edit-toggle" onclick="toggleShortcutEdit()"
+            class="text-xs text-indigo-500 hover:underline">編集</button>
+        </div>
+        <div id="shortcuts-list" class="flex flex-wrap gap-2"></div>
       </div>
-    </section>
 
-    <!-- ② 支出入力フォーム（折りたたみ可） -->
-    <section class="bg-white rounded-2xl shadow-sm border border-gray-100">
-
-      <!-- フォームヘッダー（タップで開閉） -->
-      <button
-        onclick="toggleForm()"
-        class="w-full flex items-center justify-between px-5 py-4 text-left tap-target">
-        <span class="font-semibold text-gray-700">✏️ 支出を追加</span>
-        <svg id="form-chevron" xmlns="http://www.w3.org/2000/svg"
-             class="w-5 h-5 text-gray-400 transition-transform duration-200"
-             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-        </svg>
+      <!-- 未分類To-Do通知 -->
+      <button id="todo-banner" onclick="openUncategorizedModal()"
+        class="hidden w-full text-left bg-amber-50 border border-amber-200 rounded-2xl p-4
+               flex items-center gap-3 hover:bg-amber-100 transition tap-target">
+        <span class="text-2xl">⚠️</span>
+        <div class="min-w-0 flex-1">
+          <p id="todo-text" class="text-sm font-semibold text-amber-800"></p>
+          <p class="text-xs text-amber-600 mt-0.5">タップしてカテゴリを設定 →</p>
+        </div>
       </button>
 
-      <!-- フォーム本体 -->
-      <div id="form-body" class="px-5 pb-5">
-        <form id="expense-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="date">日付</label>
-            <input id="date" type="date" required
-              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-indigo-300 tap-target" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="amount">金額（円）</label>
-            <input id="amount" type="number" min="1" placeholder="例: 1200" required
-              inputmode="numeric"
-              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-indigo-300 tap-target" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="category">カテゴリ</label>
-            <select id="category" required
-              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-indigo-300 tap-target">
-              <option value="">選択してください</option>
-              <option>食費</option><option>交通費</option><option>日用品</option>
-              <option>外食</option><option>娯楽</option><option>その他</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="payment_method">支払い方法</label>
-            <select id="payment_method" required
-              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-indigo-300 tap-target">
-              <option value="">選択してください</option>
-              <option>PayPay</option><option>クレジットカード</option>
-              <option>現金</option><option>その他</option>
-            </select>
-          </div>
-
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="memo">メモ（任意）</label>
-            <input id="memo" type="text" placeholder="例: コンビニでランチ"
-              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-          </div>
-
-          <div class="sm:col-span-2">
-            <button type="submit"
-              class="w-full bg-indigo-500 hover:bg-indigo-600 active:scale-95
-                     text-white font-semibold py-3.5 rounded-xl transition-all text-sm tap-target">
-              追加する
-            </button>
-          </div>
-        </form>
-        <p id="form-error" class="mt-2 text-xs text-red-500 hidden"></p>
+      <!-- 直近の支出タイムライン -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-sm font-semibold text-gray-700">🕒 直近の支出</p>
+          <button onclick="switchTab('month')" class="text-xs text-indigo-500 hover:underline">すべて見る →</button>
+        </div>
+        <div id="timeline-list" class="space-y-2.5">
+          <p class="text-sm text-gray-400 text-center py-6 animate-pulse">読み込み中...</p>
+        </div>
       </div>
     </section>
 
-    <!-- ③ 支出一覧 -->
-    <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+    <!-- ============================ 月別 ============================ -->
+    <section id="view-month" class="space-y-5 hidden">
+      <div class="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-2">
+        <button onclick="changeMonth(-1)" class="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-500 text-lg" aria-label="前月">‹</button>
+        <div class="text-center">
+          <p id="month-label" class="font-bold text-gray-700 text-base">―</p>
+          <button onclick="goToday()" class="text-xs text-indigo-500 hover:underline">今月へ</button>
+        </div>
+        <button onclick="changeMonth(1)" class="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-500 text-lg" aria-label="翌月">›</button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">月間合計</p>
+          <p id="monthly-total" class="text-4xl font-bold text-indigo-600 mt-2">¥0</p>
+          <p id="monthly-label" class="text-xs text-gray-400 mt-1"></p>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-3">カテゴリ別</p>
+          <ul id="category-summary" class="space-y-1.5 text-sm"></ul>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <p class="text-sm font-semibold text-gray-700 mb-3">🥧 カテゴリ別の割合</p>
+        <div class="relative h-64"><canvas id="month-pie-chart"></canvas></div>
+        <p id="month-pie-empty" class="hidden text-xs text-gray-400 text-center py-8">当月のデータがありません</p>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <p class="text-sm font-semibold text-gray-700 mb-3">📈 日ごとの支出推移</p>
+        <div class="relative h-64"><canvas id="month-line-chart"></canvas></div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div class="flex items-center justify-between mb-4 gap-2">
+          <h2 class="font-semibold text-gray-700 shrink-0">📋 支出一覧</h2>
+          <div class="flex items-center gap-2">
+            <span id="expense-count" class="text-xs text-gray-400 hidden sm:inline"></span>
+            <select id="sort-mode" onchange="renderMonthList()"
+              class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+              <option value="date_desc">日付：新しい順</option>
+              <option value="date_asc">日付：古い順</option>
+              <option value="amount_desc">金額：高い順</option>
+              <option value="amount_asc">金額：安い順</option>
+              <option value="category">カテゴリ順</option>
+            </select>
+          </div>
+        </div>
+        <div id="expense-list" class="space-y-2.5"></div>
+      </div>
+    </section>
+
+    <!-- ============================ 年間 ============================ -->
+    <section id="view-year" class="space-y-5 hidden">
+      <div class="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 p-2">
+        <button onclick="changeYear(-1)" class="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-500 text-lg" aria-label="前年">‹</button>
+        <p id="year-label" class="font-bold text-gray-700 text-base">―</p>
+        <button onclick="changeYear(1)" class="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-gray-100 text-gray-500 text-lg" aria-label="翌年">›</button>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">年間合計</p>
+        <p id="yearly-total" class="text-4xl font-bold text-indigo-600 mt-2">¥0</p>
+        <p id="yearly-label" class="text-xs text-gray-400 mt-1"></p>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <p class="text-sm font-semibold text-gray-700 mb-3">📈 月ごとの支出推移</p>
+        <div class="relative h-64"><canvas id="year-line-chart"></canvas></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <p class="text-sm font-semibold text-gray-700 mb-3">🥧 年間カテゴリ別の割合</p>
+        <div class="relative h-64"><canvas id="year-pie-chart"></canvas></div>
+        <p id="year-pie-empty" class="hidden text-xs text-gray-400 text-center py-8">この年のデータがありません</p>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <p class="text-sm font-semibold text-gray-700 mb-3">📅 月別の内訳</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-xs text-gray-400 border-b border-gray-100">
+              <th class="text-left py-2 pr-2 font-medium">月</th>
+              <th class="text-right py-2 px-2 font-medium">合計</th>
+              <th class="text-left py-2 pl-2 font-medium">カテゴリTOP3</th>
+            </tr></thead>
+            <tbody id="year-month-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- フローティングアクションボタン -->
+  <button id="fab" onclick="openInputModal()"
+    class="hidden fixed right-5 bottom-24 z-30 w-14 h-14 rounded-full bg-indigo-500 hover:bg-indigo-600
+           text-white text-3xl shadow-lg flex items-center justify-center active:scale-90" aria-label="支出を追加">＋</button>
+
+  <!-- ボトムナビ -->
+  <nav class="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-100">
+    <div class="max-w-2xl mx-auto grid grid-cols-3">
+      <button data-tab="home" onclick="switchTab('home')" class="nav-btn flex flex-col items-center justify-center py-2.5 gap-0.5">
+        <span class="text-xl">🏠</span><span class="text-xs font-medium">ホーム</span>
+      </button>
+      <button data-tab="month" onclick="switchTab('month')" class="nav-btn flex flex-col items-center justify-center py-2.5 gap-0.5">
+        <span class="text-xl">📅</span><span class="text-xs font-medium">月別</span>
+      </button>
+      <button data-tab="year" onclick="switchTab('year')" class="nav-btn flex flex-col items-center justify-center py-2.5 gap-0.5">
+        <span class="text-xl">📊</span><span class="text-xs font-medium">年間</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 入力モーダル（ボトムシート） -->
+  <div id="input-modal" class="hidden fixed inset-0 z-40">
+    <div class="absolute inset-0 bg-black/40" onclick="closeInputModal()"></div>
+    <div id="input-sheet" class="sheet sheet-hidden absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[90vh] overflow-y-auto">
+      <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
       <div class="flex items-center justify-between mb-4">
-        <h2 class="font-semibold text-gray-700">📋 支出一覧</h2>
-        <span id="expense-count" class="text-xs text-gray-400"></span>
+        <p id="modal-title" class="font-semibold text-gray-700">✏️ 支出を追加</p>
+        <button onclick="closeInputModal()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>
       </div>
-      <div id="expense-list" class="space-y-2.5">
-        <p class="text-sm text-gray-400 text-center py-8 animate-pulse">読み込み中...</p>
-      </div>
-    </section>
+      <div id="modal-form-mount"></div>
+    </div>
+  </div>
 
-  </div><!-- /max-w -->
+  <!-- カテゴリ管理モーダル -->
+  <div id="category-modal" class="hidden fixed inset-0 z-40">
+    <div class="absolute inset-0 bg-black/40" onclick="closeCategoryModal()"></div>
+    <div class="sheet absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[90vh] overflow-y-auto">
+      <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-4">
+        <p class="font-semibold text-gray-700">⚙️ カテゴリを編集</p>
+        <button onclick="closeCategoryModal()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>
+      </div>
+      <div id="category-list" class="space-y-2 mb-5"></div>
+      <div class="border-t border-gray-100 pt-4">
+        <p class="text-xs font-medium text-gray-500 mb-2">新しいカテゴリを追加</p>
+        <div class="flex items-center gap-2">
+          <input id="newcat-emoji" type="text" value="🏷️" maxlength="2"
+            class="w-12 text-center border border-gray-200 rounded-xl py-2.5 tap-target" />
+          <input id="newcat-color" type="color" value="#6366f1"
+            class="w-12 h-11 border border-gray-200 rounded-xl p-1 cursor-pointer" />
+          <input id="newcat-name" type="text" placeholder="カテゴリ名"
+            class="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+          <button onclick="addCategory()"
+            class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold tap-target">追加</button>
+        </div>
+        <p id="category-error" class="hidden text-xs text-red-500 mt-2"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 未分類 一括設定モーダル -->
+  <div id="uncategorized-modal" class="hidden fixed inset-0 z-40">
+    <div class="absolute inset-0 bg-black/40" onclick="closeUncategorizedModal()"></div>
+    <div class="sheet absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[90vh] overflow-y-auto">
+      <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-4">
+        <p class="font-semibold text-gray-700">🏷️ 未分類の支出を整理</p>
+        <button onclick="closeUncategorizedModal()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>
+      </div>
+      <div id="uncategorized-list" class="space-y-2 mb-4"></div>
+      <button onclick="saveUncategorized()"
+        class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 rounded-xl tap-target">まとめて保存</button>
+    </div>
+  </div>
+
+  <!-- ショートカット登録モーダル -->
+  <div id="shortcut-modal" class="hidden fixed inset-0 z-40">
+    <div class="absolute inset-0 bg-black/40" onclick="closeShortcutModal()"></div>
+    <div class="sheet absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[90vh] overflow-y-auto">
+      <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-4">
+        <p class="font-semibold text-gray-700">⚡ ショートカットを登録</p>
+        <button onclick="closeShortcutModal()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">ラベル（例: コンビニ）</label>
+          <input id="sc-label" type="text" placeholder="ボタンに表示する名前"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">金額（0なら都度入力）</label>
+            <input id="sc-amount" type="number" min="0" placeholder="500" inputmode="numeric"
+              class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">カテゴリ</label>
+            <select id="sc-category" class="cat-select w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300"></select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">支払い方法</label>
+          <select id="sc-payment" class="pay-select w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300"></select>
+        </div>
+        <button onclick="addShortcut()"
+          class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 rounded-xl tap-target">登録する</button>
+        <p id="shortcut-error" class="hidden text-xs text-red-500"></p>
+      </div>
+    </div>
+  </div>
 
   <script>
     // ============================================================
-    // 定数・マッピング
+    // 状態
     // ============================================================
-    const CATEGORY_STYLE = {
-      "食費":   { color: "bg-green-100 text-green-700",   emoji: "🛒" },
-      "交通費": { color: "bg-blue-100 text-blue-700",     emoji: "🚃" },
-      "日用品": { color: "bg-yellow-100 text-yellow-700", emoji: "🧴" },
-      "外食":   { color: "bg-orange-100 text-orange-700", emoji: "🍜" },
-      "娯楽":   { color: "bg-purple-100 text-purple-700", emoji: "🎮" },
-      "その他": { color: "bg-gray-100 text-gray-600",     emoji: "📦" },
-    };
-    const PAYMENT_EMOJI = {
-      "PayPay": "🟡", "クレジットカード": "💳", "現金": "💴", "その他": "💰",
-    };
+    let allExpenses = [];
+    let categories  = [];           // APIから取得したカテゴリ
+    let catMap      = {};           // name -> {emoji, color}
+    let shortcuts   = [];
+    let currentTab  = "home";
+    let currentMonth = new Date(); currentMonth.setDate(1);
+    let currentYear  = new Date().getFullYear();
+    let editingId    = null;        // 入力モーダルが編集モードのとき対象ID
+    let shortcutEditMode = false;
+    const charts = { pie:null, line:null, yearLine:null, yearPie:null };
+    const PAYMENTS = ["PayPay", "PayPayカード", "クレジットカード", "現金", "その他"];
+    const PAY_EMOJI = { "PayPay":"🟡","PayPayカード":"💳","クレジットカード":"💳","現金":"💴","その他":"💰" };
+    const UNCATEGORIZED = "未分類";
+
+    const today = () => new Date().toISOString().slice(0,10);
+
+    function catStyle(name){
+      if (catMap[name]) return catMap[name];
+      if (name === UNCATEGORIZED) return { emoji:"❓", color:"#cbd5e1" };
+      return { emoji:"📦", color:"#9ca3af" };
+    }
+    function badge(name){
+      const s = catStyle(name);
+      return `<span class="shrink-0 text-xs font-medium px-2 py-1 rounded-full"
+        style="background:${s.color}22;color:${s.color}">${s.emoji} ${name}</span>`;
+    }
 
     // ============================================================
     // 初期化
     // ============================================================
-    document.addEventListener("DOMContentLoaded", () => {
-      // 今日の日付をセット
-      document.getElementById("date").value = new Date().toISOString().slice(0, 10);
-      fetchAndRender();
+    document.addEventListener("DOMContentLoaded", async () => {
+      mountForm("home-form-mount", "home");
+      mountForm("modal-form-mount", "modal");
+      await loadCategories();
+      await fetchAll();
+      switchTab("home");
+      window.addEventListener("scroll", updateFab, { passive:true });
     });
 
-    // ============================================================
-    // データ取得・描画
-    // ============================================================
-    async function fetchAndRender() {
+    async function loadCategories(){
+      try {
+        const res = await fetch("/api/categories");
+        if (res.status === 401) { location.href="/login"; return; }
+        categories = await res.json();
+      } catch { categories = []; }
+      catMap = {};
+      for (const c of categories) catMap[c.name] = { emoji:c.emoji, color:c.color };
+      populateCategorySelects();
+    }
+
+    async function loadShortcuts(){
+      try { shortcuts = await (await fetch("/api/shortcuts")).json(); }
+      catch { shortcuts = []; }
+    }
+
+    async function fetchAll(){
       try {
         const res = await fetch("/api/expenses");
-        if (res.status === 401) { location.href = "/login"; return; }
-        if (!res.ok) throw new Error();
-        const expenses = await res.json();
-        renderExpenseList(expenses);
-        renderSummary(expenses);
-      } catch {
-        document.getElementById("expense-list").innerHTML =
-          '<p class="text-sm text-red-400 text-center py-6">データ取得に失敗しました</p>';
-      }
+        if (res.status === 401) { location.href="/login"; return; }
+        allExpenses = await res.json();
+      } catch { allExpenses = []; }
+      await loadShortcuts();
+      renderCurrentTab();
     }
 
-    function renderExpenseList(expenses) {
-      const el = document.getElementById("expense-list");
-      document.getElementById("expense-count").textContent =
-        expenses.length ? `全 ${expenses.length} 件` : "";
-
-      if (!expenses.length) {
-        el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">まだ支出データがありません</p>';
-        return;
-      }
-
-      el.innerHTML = expenses.map(e => {
-        const s = CATEGORY_STYLE[e.category] || CATEGORY_STYLE["その他"];
-        const pe = PAYMENT_EMOJI[e.payment_method] || "💰";
-        return `
-        <div class="flex items-center justify-between p-3 rounded-xl
-                    border border-gray-100 hover:bg-gray-50 transition fade-in">
-          <div class="flex items-start gap-3 min-w-0">
-            <span class="shrink-0 text-xs font-medium px-2 py-1 rounded-full mt-0.5 ${s.color}">
-              ${s.emoji} ${e.category}
-            </span>
-            <div class="min-w-0">
-              <p class="text-sm font-medium leading-snug truncate">
-                ${e.memo || "（メモなし）"}
-              </p>
-              <p class="text-xs text-gray-400 mt-0.5">
-                ${e.date} &nbsp;${pe} ${e.payment_method}
-              </p>
+    // ============================================================
+    // 入力フォーム生成（home / modal で共用）
+    // ============================================================
+    function mountForm(mountId, prefix){
+      document.getElementById(mountId).innerHTML = `
+        <form onsubmit="return submitForm(event,'${prefix}')" class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">日付</label>
+              <input id="${prefix}-date" type="date" required
+                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">金額（円）</label>
+              <input id="${prefix}-amount" type="number" min="1" required inputmode="numeric" placeholder="1200"
+                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">カテゴリ</label>
+              <select id="${prefix}-category" required
+                class="cat-select w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300"></select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">支払い方法</label>
+              <select id="${prefix}-payment" required
+                class="pay-select w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300"></select>
             </div>
           </div>
-          <div class="flex items-center gap-2 shrink-0 ml-2">
-            <span class="text-sm font-bold text-gray-800">¥${e.amount.toLocaleString()}</span>
-            <button onclick="deleteExpense('${e.id}')"
-              class="w-7 h-7 flex items-center justify-center rounded-full
-                     text-gray-300 hover:text-red-400 hover:bg-red-50 transition"
-              aria-label="削除">✕</button>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">メモ（任意）</label>
+            <input id="${prefix}-memo" type="text" placeholder="例: コンビニでランチ"
+              class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
           </div>
-        </div>`;
-      }).join("");
+          <button type="submit"
+            class="w-full bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white font-semibold py-3 rounded-xl transition-all text-sm tap-target">
+            <span id="${prefix}-submit-label">追加する</span>
+          </button>
+          <p id="${prefix}-error" class="text-xs text-red-500 hidden"></p>
+        </form>`;
     }
 
-    function renderSummary(expenses) {
-      const now = new Date();
-      const ym  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-      const monthly = expenses.filter(e => e.date.startsWith(ym));
-      const total   = monthly.reduce((s, e) => s + e.amount, 0);
+    function populateCategorySelects(){
+      const opts = categories.map(c => `<option value="${c.name}">${c.emoji} ${c.name}</option>`).join("")
+                 + `<option value="${UNCATEGORIZED}">❓ 未分類</option>`;
+      document.querySelectorAll(".cat-select").forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = `<option value="">選択してください</option>` + opts;
+        if (cur) sel.value = cur;
+      });
+      const payOpts = PAYMENTS.map(p => `<option>${p}</option>`).join("");
+      document.querySelectorAll(".pay-select").forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = `<option value="">選択してください</option>` + payOpts;
+        if (cur) sel.value = cur;
+      });
+      // フォームの日付に今日をセット
+      ["home-date","modal-date"].forEach(id => { const el=document.getElementById(id); if (el && !el.value) el.value = today(); });
+    }
 
-      document.getElementById("monthly-total").textContent = `¥${total.toLocaleString()}`;
-      document.getElementById("monthly-label").textContent =
-        `${now.getFullYear()}年${now.getMonth()+1}月 / ${monthly.length}件`;
+    // ============================================================
+    // フォーム送信（追加 or 編集）
+    // ============================================================
+    async function submitForm(ev, prefix){
+      ev.preventDefault();
+      const errEl = document.getElementById(`${prefix}-error`);
+      errEl.classList.add("hidden");
+      const body = {
+        date:           document.getElementById(`${prefix}-date`).value,
+        amount:         parseInt(document.getElementById(`${prefix}-amount`).value),
+        category:       document.getElementById(`${prefix}-category`).value,
+        payment_method: document.getElementById(`${prefix}-payment`).value,
+        memo:           document.getElementById(`${prefix}-memo`).value,
+      };
+      try {
+        let res;
+        if (prefix === "modal" && editingId) {
+          res = await fetch(`/api/expenses/${editingId}`, {
+            method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+        } else {
+          res = await fetch("/api/expenses", {
+            method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+        }
+        if (!res.ok) throw new Error((await res.json()).detail || "保存に失敗しました");
+        // フォームをリセット
+        document.getElementById(`${prefix}-amount`).value = "";
+        document.getElementById(`${prefix}-category`).value = "";
+        document.getElementById(`${prefix}-payment`).value = "";
+        document.getElementById(`${prefix}-memo`).value = "";
+        if (prefix === "modal") closeInputModal();
+        showToast("✅ 記録しました");
+        await fetchAll();
+      } catch (err) {
+        errEl.textContent = err.message; errEl.classList.remove("hidden");
+      }
+      return false;
+    }
 
-      const byCategory = {};
-      for (const e of monthly) byCategory[e.category] = (byCategory[e.category]||0) + e.amount;
+    async function postExpense(body){
+      const res = await fetch("/api/expenses", {
+        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+      return res.ok;
+    }
 
-      const ul = document.getElementById("category-summary");
-      const entries = Object.entries(byCategory).sort((a,b) => b[1]-a[1]);
-      if (!entries.length) {
-        ul.innerHTML = '<li class="text-xs text-gray-400">当月のデータなし</li>';
+    // ============================================================
+    // タブ切り替え
+    // ============================================================
+    function switchTab(tab){
+      currentTab = tab;
+      document.getElementById("view-home").classList.toggle("hidden", tab!=="home");
+      document.getElementById("view-month").classList.toggle("hidden", tab!=="month");
+      document.getElementById("view-year").classList.toggle("hidden", tab!=="year");
+      document.querySelectorAll(".nav-btn").forEach(b => {
+        const active = b.dataset.tab === tab;
+        b.classList.toggle("text-indigo-600", active);
+        b.classList.toggle("text-gray-400", !active);
+      });
+      window.scrollTo(0,0);
+      renderCurrentTab();
+      updateFab();
+    }
+    function renderCurrentTab(){
+      if (currentTab==="home") renderHome();
+      else if (currentTab==="month") renderMonthView();
+      else renderYearView();
+    }
+
+    // ============================================================
+    // FAB 表示制御
+    // ============================================================
+    function updateFab(){
+      const fab = document.getElementById("fab");
+      if (currentTab !== "home"){ fab.classList.remove("hidden"); return; }
+      // ホーム：入力フォームが画面外に隠れたらFABを出す
+      const card = document.getElementById("home-form-card");
+      const rect = card.getBoundingClientRect();
+      fab.classList.toggle("hidden", rect.bottom > 70);
+    }
+
+    // ============================================================
+    // ホーム描画
+    // ============================================================
+    function renderHome(){
+      renderShortcuts();
+      renderTodo();
+      renderTimeline();
+    }
+
+    function renderTimeline(){
+      const recent = [...allExpenses]
+        .sort((a,b)=> b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+        .slice(0, 8);
+      const el = document.getElementById("timeline-list");
+      if (!recent.length){ el.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">まだ支出がありません</p>'; return; }
+      el.innerHTML = recent.map(expenseRow).join("");
+    }
+
+    function renderShortcuts(){
+      const el = document.getElementById("shortcuts-list");
+      const chips = shortcuts.map(s => {
+        const st = catStyle(s.category);
+        const amt = s.amount ? `¥${s.amount.toLocaleString()}` : "都度入力";
+        const del = shortcutEditMode
+          ? `<button onclick="event.stopPropagation();deleteShortcut('${s.id}')" class="ml-1 text-red-400 hover:text-red-600">✕</button>` : "";
+        return `<button onclick="useShortcut('${s.id}')"
+          class="flex items-center gap-1.5 border rounded-full pl-3 pr-3 py-2 text-sm hover:shadow-sm active:scale-95 transition tap-target"
+          style="border-color:${st.color}55;background:${st.color}11">
+          <span>${st.emoji}</span>
+          <span class="font-medium text-gray-700">${s.label}</span>
+          <span class="text-xs text-gray-400">${amt}</span>${del}
+        </button>`;
+      }).join("");
+      el.innerHTML = chips + `
+        <button onclick="openShortcutModal()"
+          class="flex items-center gap-1 border border-dashed border-gray-300 text-gray-400
+                 rounded-full px-3 py-2 text-sm hover:border-indigo-300 hover:text-indigo-500 transition tap-target">
+          ＋ 登録
+        </button>`;
+    }
+
+    function renderTodo(){
+      const unc = allExpenses.filter(e => !e.category || e.category === UNCATEGORIZED);
+      const banner = document.getElementById("todo-banner");
+      if (unc.length){
+        document.getElementById("todo-text").textContent = `未分類の支出が ${unc.length}件 あります`;
+        banner.classList.remove("hidden");
+      } else {
+        banner.classList.add("hidden");
+      }
+    }
+
+    function toggleShortcutEdit(){
+      shortcutEditMode = !shortcutEditMode;
+      document.getElementById("shortcut-edit-toggle").textContent = shortcutEditMode ? "完了" : "編集";
+      renderShortcuts();
+    }
+
+    async function useShortcut(id){
+      const sc = shortcuts.find(s => s.id===id);
+      if (!sc) return;
+      if (shortcutEditMode) return;
+      if (!sc.amount){ // 金額未設定 → モーダルで都度入力
+        openInputModal({ category:sc.category, payment:sc.payment_method, memo:sc.memo||sc.label });
         return;
       }
-      // プログレスバー付き
+      const ok = await postExpense({ date:today(), amount:sc.amount,
+        category:sc.category||UNCATEGORIZED, payment_method:sc.payment_method, memo:sc.memo||sc.label });
+      showToast(ok ? `✅ ${sc.label} ¥${sc.amount.toLocaleString()} を記録` : "❌ 記録に失敗しました");
+      if (ok) await fetchAll();
+    }
+
+    // ============================================================
+    // 支出行（タイムライン・一覧で共用）
+    // ============================================================
+    function expenseRow(e){
+      const pe = PAY_EMOJI[e.payment_method] || "💰";
+      const isUnc = !e.category || e.category === UNCATEGORIZED;
+      return `
+      <div class="flex items-center justify-between p-3 rounded-xl border ${isUnc?'border-amber-200 bg-amber-50/40':'border-gray-100'} hover:bg-gray-50 transition fade-in">
+        <div class="flex items-start gap-3 min-w-0">
+          ${badge(e.category || UNCATEGORIZED)}
+          <div class="min-w-0">
+            <p class="text-sm font-medium leading-snug truncate">${e.memo || "（メモなし）"}</p>
+            <p class="text-xs text-gray-400 mt-0.5">${e.date} &nbsp;${pe} ${e.payment_method}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 shrink-0 ml-2">
+          <span class="text-sm font-bold text-gray-800">¥${e.amount.toLocaleString()}</span>
+          <button onclick="openEditModal('${e.id}')" class="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-indigo-500 hover:bg-indigo-50" aria-label="編集">✎</button>
+          <button onclick="deleteExpense('${e.id}')" class="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50" aria-label="削除">✕</button>
+        </div>
+      </div>`;
+    }
+
+    // ============================================================
+    // 月別ビュー
+    // ============================================================
+    function getMonthExpenses(){
+      const ym = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth()+1).padStart(2,"0")}`;
+      return allExpenses.filter(e => e.date.startsWith(ym));
+    }
+    function changeMonth(d){ currentMonth.setMonth(currentMonth.getMonth()+d); renderMonthView(); }
+    function goToday(){ currentMonth = new Date(); currentMonth.setDate(1); renderMonthView(); }
+
+    function renderMonthView(){
+      const y = currentMonth.getFullYear(), m = currentMonth.getMonth()+1;
+      document.getElementById("month-label").textContent = `${y}年${m}月`;
+      const monthly = getMonthExpenses();
+      const total = monthly.reduce((s,e)=>s+e.amount,0);
+      document.getElementById("monthly-total").textContent = `¥${total.toLocaleString()}`;
+      document.getElementById("monthly-label").textContent = `${y}年${m}月 / ${monthly.length}件`;
+      renderCategorySummary(monthly);
+      renderPieChart("pie", "month-pie-chart", "month-pie-empty", monthly);
+      renderMonthLine(monthly, y, m);
+      renderMonthList();
+    }
+
+    function renderCategorySummary(list){
+      const byCat = aggregate(list);
+      const ul = document.getElementById("category-summary");
+      const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+      if (!entries.length){ ul.innerHTML='<li class="text-xs text-gray-400">当月のデータなし</li>'; return; }
       const max = entries[0][1];
-      ul.innerHTML = entries.map(([cat, amt]) => {
-        const s = CATEGORY_STYLE[cat] || CATEGORY_STYLE["その他"];
-        const pct = Math.round(amt / max * 100);
+      ul.innerHTML = entries.map(([cat,amt])=>{
+        const s = catStyle(cat); const pct = Math.round(amt/max*100);
         return `<li class="space-y-0.5">
           <div class="flex justify-between text-xs">
-            <span class="${s.color} px-1.5 rounded font-medium">${s.emoji} ${cat}</span>
+            <span class="px-1.5 rounded font-medium" style="background:${s.color}22;color:${s.color}">${s.emoji} ${cat}</span>
             <span class="font-semibold text-gray-700">¥${amt.toLocaleString()}</span>
           </div>
           <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full bg-indigo-400 rounded-full" style="width:${pct}%"></div>
-          </div>
-        </li>`;
+            <div class="h-full rounded-full" style="width:${pct}%;background:${s.color}"></div>
+          </div></li>`;
       }).join("");
     }
 
-    // ============================================================
-    // フォームの開閉
-    // ============================================================
-    let formOpen = true;
-    function toggleForm() {
-      formOpen = !formOpen;
-      const body    = document.getElementById("form-body");
-      const chevron = document.getElementById("form-chevron");
-      body.style.display    = formOpen ? "" : "none";
-      chevron.style.transform = formOpen ? "" : "rotate(-90deg)";
+    function renderMonthLine(monthly, year, month){
+      const days = new Date(year, month, 0).getDate();
+      const daily = new Array(days).fill(0);
+      for (const e of monthly){ const d = parseInt(e.date.slice(8,10),10); if (d>=1&&d<=days) daily[d-1]+=e.amount; }
+      drawLine("line", document.getElementById("month-line-chart"),
+        Array.from({length:days},(_,i)=>`${i+1}`), daily);
     }
 
-    // ============================================================
-    // 支出追加
-    // ============================================================
-    document.getElementById("expense-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const errEl = document.getElementById("form-error");
-      errEl.classList.add("hidden");
+    function renderMonthList(){
+      const monthly = getMonthExpenses();
+      const mode = document.getElementById("sort-mode").value;
+      const sorted = sortExpenses(monthly, mode);
+      document.getElementById("expense-count").textContent = monthly.length ? `全 ${monthly.length} 件` : "";
+      const el = document.getElementById("expense-list");
+      el.innerHTML = sorted.length ? sorted.map(expenseRow).join("")
+        : '<p class="text-sm text-gray-400 text-center py-8">この月の支出データがありません</p>';
+    }
 
-      const body = {
-        date:           document.getElementById("date").value,
-        amount:         parseInt(document.getElementById("amount").value),
-        category:       document.getElementById("category").value,
-        payment_method: document.getElementById("payment_method").value,
-        memo:           document.getElementById("memo").value,
-      };
-
-      try {
-        const res = await fetch("/api/expenses", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error((await res.json()).detail || "追加に失敗しました");
-        // フォームを部分リセット
-        document.getElementById("amount").value = "";
-        document.getElementById("category").value = "";
-        document.getElementById("payment_method").value = "";
-        document.getElementById("memo").value = "";
-        fetchAndRender();
-      } catch (err) {
-        errEl.textContent = err.message;
-        errEl.classList.remove("hidden");
+    function sortExpenses(list, mode){
+      const arr = [...list];
+      switch(mode){
+        case "date_asc":    return arr.sort((a,b)=> a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+        case "amount_desc": return arr.sort((a,b)=> b.amount-a.amount);
+        case "amount_asc":  return arr.sort((a,b)=> a.amount-b.amount);
+        case "category":    return arr.sort((a,b)=> (a.category||"").localeCompare(b.category||"","ja") || b.date.localeCompare(a.date));
+        default:            return arr.sort((a,b)=> b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
       }
-    });
+    }
 
     // ============================================================
-    // 支出削除
+    // 年間ビュー
     // ============================================================
-    async function deleteExpense(id) {
-      if (!confirm("この支出を削除しますか？")) return;
-      try {
-        const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("削除に失敗しました");
-        fetchAndRender();
-      } catch (err) { alert(err.message); }
+    function changeYear(d){ currentYear += d; renderYearView(); }
+    function renderYearView(){
+      document.getElementById("year-label").textContent = `${currentYear}年`;
+      const yearly = allExpenses.filter(e => e.date.startsWith(`${currentYear}-`));
+      const total = yearly.reduce((s,e)=>s+e.amount,0);
+      document.getElementById("yearly-total").textContent = `¥${total.toLocaleString()}`;
+      document.getElementById("yearly-label").textContent = `${currentYear}年 / ${yearly.length}件`;
+      const mt = new Array(12).fill(0);
+      for (const e of yearly){ const m=parseInt(e.date.slice(5,7),10); if (m>=1&&m<=12) mt[m-1]+=e.amount; }
+      drawLine("yearLine", document.getElementById("year-line-chart"),
+        Array.from({length:12},(_,i)=>`${i+1}月`), mt);
+      renderPieChart("yearPie", "year-pie-chart", "year-pie-empty", yearly);
+      renderYearTable(yearly, mt);
     }
+
+    function renderYearTable(yearly, mt){
+      let html = "";
+      for (let m=1;m<=12;m++){
+        const me = yearly.filter(e=>parseInt(e.date.slice(5,7),10)===m);
+        const total = mt[m-1];
+        const top3 = Object.entries(aggregate(me)).sort((a,b)=>b[1]-a[1]).slice(0,3);
+        const top3html = top3.length ? top3.map(([cat,amt])=>{
+          const s=catStyle(cat);
+          return `<span class="inline-block px-1.5 py-0.5 rounded text-xs mr-1 mb-1 whitespace-nowrap" style="background:${s.color}22;color:${s.color}">${s.emoji}${cat} ¥${amt.toLocaleString()}</span>`;
+        }).join("") : '<span class="text-xs text-gray-300">―</span>';
+        html += `<tr class="border-b border-gray-50 ${total?'':'opacity-40'}">
+          <td class="py-2 pr-2 font-medium text-gray-600 whitespace-nowrap">${m}月</td>
+          <td class="py-2 px-2 text-right font-semibold text-gray-700 whitespace-nowrap">¥${total.toLocaleString()}</td>
+          <td class="py-2 pl-2">${top3html}</td></tr>`;
+      }
+      document.getElementById("year-month-table").innerHTML = html;
+    }
+
+    // ============================================================
+    // 集計・グラフ
+    // ============================================================
+    function aggregate(list){
+      const o = {}; for (const e of list){ const c = e.category||UNCATEGORIZED; o[c]=(o[c]||0)+e.amount; } return o;
+    }
+
+    function renderPieChart(key, canvasId, emptyId, list){
+      const byCat = aggregate(list);
+      const canvas = document.getElementById(canvasId), empty = document.getElementById(emptyId);
+      if (!Object.keys(byCat).length){
+        if (charts[key]){ charts[key].destroy(); charts[key]=null; }
+        canvas.style.display="none"; empty.classList.remove("hidden"); return;
+      }
+      canvas.style.display=""; empty.classList.add("hidden");
+      // カテゴリ定義順 → 未定義 → 未分類
+      const order = categories.map(c=>c.name);
+      const cats = Object.keys(byCat).sort((a,b)=>{
+        const ia = order.indexOf(a), ib = order.indexOf(b);
+        return (ia<0?99:ia)-(ib<0?99:ib);
+      });
+      const data = cats.map(c=>byCat[c]);
+      const colors = cats.map(c=>catStyle(c).color);
+      const total = data.reduce((s,v)=>s+v,0);
+      if (charts[key]) charts[key].destroy();
+      charts[key] = new Chart(canvas, {
+        type:"doughnut",
+        data:{ labels:cats.map(c=>`${catStyle(c).emoji} ${c}`),
+          datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:"#fff" }] },
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{ position:"bottom", labels:{ boxWidth:12, padding:10, font:{size:11} } },
+            tooltip:{ callbacks:{ label:(ctx)=>{ const v=ctx.parsed, pct=total?(v/total*100).toFixed(1):0; return ` ¥${v.toLocaleString()} (${pct}%)`; } } } } }
+      });
+    }
+
+    function drawLine(key, canvas, labels, data){
+      if (charts[key]) charts[key].destroy();
+      charts[key] = new Chart(canvas, {
+        type:"line",
+        data:{ labels, datasets:[{ data, borderColor:"#6366f1", backgroundColor:"rgba(99,102,241,.1)",
+          borderWidth:2, tension:.3, fill:true, pointRadius:2, pointHoverRadius:5, pointBackgroundColor:"#6366f1" }] },
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(ctx)=>` ¥${ctx.parsed.y.toLocaleString()}` } } },
+          scales:{ x:{ ticks:{ font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:12 }, grid:{display:false} },
+            y:{ ticks:{ font:{size:10}, callback:(v)=>"¥"+v.toLocaleString() }, beginAtZero:true } } }
+      });
+    }
+
+    // ============================================================
+    // 入力モーダル
+    // ============================================================
+    function openInputModal(prefill){
+      editingId = null;
+      document.getElementById("modal-title").textContent = "✏️ 支出を追加";
+      document.getElementById("modal-submit-label").textContent = "追加する";
+      document.getElementById("modal-date").value = today();
+      document.getElementById("modal-amount").value = "";
+      document.getElementById("modal-category").value = prefill?.category || "";
+      document.getElementById("modal-payment").value = prefill?.payment || "";
+      document.getElementById("modal-memo").value = prefill?.memo || "";
+      document.getElementById("modal-error").classList.add("hidden");
+      showSheet("input-modal","input-sheet");
+    }
+    function openEditModal(id){
+      const e = allExpenses.find(x=>x.id===id); if (!e) return;
+      editingId = id;
+      document.getElementById("modal-title").textContent = "✏️ 支出を編集";
+      document.getElementById("modal-submit-label").textContent = "保存する";
+      document.getElementById("modal-date").value = e.date;
+      document.getElementById("modal-amount").value = e.amount;
+      document.getElementById("modal-category").value = e.category || UNCATEGORIZED;
+      document.getElementById("modal-payment").value = e.payment_method;
+      document.getElementById("modal-memo").value = e.memo || "";
+      document.getElementById("modal-error").classList.add("hidden");
+      showSheet("input-modal","input-sheet");
+    }
+    function closeInputModal(){ editingId=null; hideSheet("input-modal","input-sheet"); }
+
+    // ============================================================
+    // 削除
+    // ============================================================
+    async function deleteExpense(id){
+      if (!confirm("この支出を削除しますか？")) return;
+      const res = await fetch(`/api/expenses/${id}`, { method:"DELETE" });
+      if (res.ok){ showToast("🗑️ 削除しました"); await fetchAll(); }
+      else alert("削除に失敗しました");
+    }
+
+    // ============================================================
+    // カテゴリ管理モーダル
+    // ============================================================
+    function openCategoryModal(){ renderCategoryList(); showSheetStatic("category-modal"); }
+    function closeCategoryModal(){ document.getElementById("category-modal").classList.add("hidden"); }
+
+    function renderCategoryList(){
+      const el = document.getElementById("category-list");
+      el.innerHTML = categories.map(c => `
+        <div class="flex items-center gap-2 p-2 rounded-xl border border-gray-100" data-id="${c.id}">
+          <input type="text" value="${c.emoji}" maxlength="2" onchange="updateCategory('${c.id}',{emoji:this.value})"
+            class="w-10 text-center border border-gray-200 rounded-lg py-1.5" />
+          <input type="color" value="${c.color}" onchange="updateCategory('${c.id}',{color:this.value})"
+            class="w-9 h-8 border border-gray-200 rounded-lg p-0.5 cursor-pointer" />
+          <input type="text" value="${c.name}" onchange="updateCategory('${c.id}',{name:this.value})"
+            class="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
+          <button onclick="deleteCategory('${c.id}','${c.name}')"
+            class="w-8 h-8 flex items-center justify-center rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50">✕</button>
+        </div>`).join("") || '<p class="text-xs text-gray-400">カテゴリがありません</p>';
+    }
+
+    async function addCategory(){
+      const name = document.getElementById("newcat-name").value.trim();
+      const emoji = document.getElementById("newcat-emoji").value.trim() || "🏷️";
+      const color = document.getElementById("newcat-color").value;
+      const err = document.getElementById("category-error");
+      err.classList.add("hidden");
+      if (!name){ err.textContent="カテゴリ名を入力してください"; err.classList.remove("hidden"); return; }
+      const res = await fetch("/api/categories", { method:"POST",
+        headers:{"Content-Type":"application/json"}, body:JSON.stringify({name,emoji,color}) });
+      if (!res.ok){ err.textContent=(await res.json()).detail||"追加に失敗"; err.classList.remove("hidden"); return; }
+      document.getElementById("newcat-name").value = "";
+      document.getElementById("newcat-emoji").value = "🏷️";
+      await loadCategories(); renderCategoryList(); renderCurrentTab();
+      showToast("✅ カテゴリを追加しました");
+    }
+
+    async function updateCategory(id, fields){
+      const res = await fetch(`/api/categories/${id}`, { method:"PUT",
+        headers:{"Content-Type":"application/json"}, body:JSON.stringify(fields) });
+      if (!res.ok){ alert((await res.json()).detail||"更新に失敗"); }
+      await loadCategories(); renderCategoryList(); renderCurrentTab();
+    }
+
+    async function deleteCategory(id, name){
+      if (!confirm(`カテゴリ「${name}」を削除しますか？\n（この分類の過去データはそのまま残ります）`)) return;
+      const res = await fetch(`/api/categories/${id}`, { method:"DELETE" });
+      if (res.ok){ await loadCategories(); renderCategoryList(); renderCurrentTab(); showToast("🗑️ 削除しました"); }
+      else alert("削除に失敗しました");
+    }
+
+    // ============================================================
+    // 未分類 一括設定モーダル
+    // ============================================================
+    function openUncategorizedModal(){
+      const unc = allExpenses.filter(e => !e.category || e.category===UNCATEGORIZED);
+      const opts = categories.map(c=>`<option value="${c.name}">${c.emoji} ${c.name}</option>`).join("");
+      document.getElementById("uncategorized-list").innerHTML = unc.map(e=>`
+        <div class="flex items-center gap-2 p-2 rounded-xl border border-amber-100 bg-amber-50/40" data-id="${e.id}">
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-medium truncate">${e.memo||"（メモなし）"}</p>
+            <p class="text-xs text-gray-400">${e.date}・¥${e.amount.toLocaleString()}</p>
+          </div>
+          <select class="unc-select border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+            <option value="">未分類のまま</option>${opts}
+          </select>
+        </div>`).join("") || '<p class="text-sm text-gray-400 text-center py-4">未分類の支出はありません 🎉</p>';
+      showSheetStatic("uncategorized-modal");
+    }
+    function closeUncategorizedModal(){ document.getElementById("uncategorized-modal").classList.add("hidden"); }
+
+    async function saveUncategorized(){
+      const rows = document.querySelectorAll("#uncategorized-list [data-id]");
+      let n = 0;
+      for (const row of rows){
+        const cat = row.querySelector(".unc-select").value;
+        if (!cat) continue;
+        const id = row.dataset.id;
+        const res = await fetch(`/api/expenses/${id}`, { method:"PATCH",
+          headers:{"Content-Type":"application/json"}, body:JSON.stringify({category:cat}) });
+        if (res.ok) n++;
+      }
+      closeUncategorizedModal();
+      showToast(n ? `✅ ${n}件のカテゴリを設定しました` : "変更はありません");
+      await fetchAll();
+    }
+
+    // ============================================================
+    // ショートカット登録モーダル
+    // ============================================================
+    function openShortcutModal(){
+      document.getElementById("sc-label").value = "";
+      document.getElementById("sc-amount").value = "";
+      document.getElementById("sc-category").value = "";
+      document.getElementById("sc-payment").value = "PayPay";
+      document.getElementById("shortcut-error").classList.add("hidden");
+      showSheetStatic("shortcut-modal");
+    }
+    function closeShortcutModal(){ document.getElementById("shortcut-modal").classList.add("hidden"); }
+
+    async function addShortcut(){
+      const label = document.getElementById("sc-label").value.trim();
+      const err = document.getElementById("shortcut-error");
+      err.classList.add("hidden");
+      if (!label){ err.textContent="ラベルを入力してください"; err.classList.remove("hidden"); return; }
+      const body = {
+        label,
+        amount: parseInt(document.getElementById("sc-amount").value) || 0,
+        category: document.getElementById("sc-category").value,
+        payment_method: document.getElementById("sc-payment").value || "PayPay",
+        memo: "",
+      };
+      const res = await fetch("/api/shortcuts", { method:"POST",
+        headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+      if (!res.ok){ err.textContent=(await res.json()).detail||"登録に失敗"; err.classList.remove("hidden"); return; }
+      closeShortcutModal();
+      await loadShortcuts(); renderShortcuts();
+      showToast("✅ ショートカットを登録しました");
+    }
+
+    async function deleteShortcut(id){
+      const res = await fetch(`/api/shortcuts/${id}`, { method:"DELETE" });
+      if (res.ok){ await loadShortcuts(); renderShortcuts(); }
+    }
+
+    // ============================================================
+    // シート/モーダル開閉ヘルパー
+    // ============================================================
+    function showSheet(modalId, sheetId){
+      const modal = document.getElementById(modalId), sheet = document.getElementById(sheetId);
+      modal.classList.remove("hidden");
+      requestAnimationFrame(()=> sheet.classList.remove("sheet-hidden"));
+    }
+    function hideSheet(modalId, sheetId){
+      const sheet = document.getElementById(sheetId);
+      sheet.classList.add("sheet-hidden");
+      setTimeout(()=> document.getElementById(modalId).classList.add("hidden"), 200);
+    }
+    function showSheetStatic(modalId){ document.getElementById(modalId).classList.remove("hidden"); }
 
     // ============================================================
     // CSVインポート
     // ============================================================
-    async function importCSV(input) {
-      const file = input.files[0];
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append("file", file);
-      input.value = ""; // 同じファイルを再選択できるようにリセット
-
+    async function importCSV(input){
+      const file = input.files[0]; if (!file) return;
+      const fd = new FormData(); fd.append("file", file); input.value="";
       showToast("CSVを処理中...", 0);
       try {
-        const res = await fetch("/api/csv/import", { method: "POST", body: formData });
+        const res = await fetch("/api/csv/import", { method:"POST", body:fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "インポート失敗");
         showToast(`✅ ${data.message}`, 4000);
-        fetchAndRender();
-      } catch (err) {
-        showToast(`❌ ${err.message}`, 4000);
-      }
+        await fetchAll();
+      } catch (err){ showToast(`❌ ${err.message}`, 4000); }
     }
 
     // ============================================================
-    // トースト通知
+    // トースト
     // ============================================================
     let toastTimer = null;
-    function showToast(msg, duration = 3000) {
+    function showToast(msg, duration=2500){
       const el = document.getElementById("toast");
-      el.textContent = msg;
-      el.classList.remove("hidden");
+      el.textContent = msg; el.classList.remove("hidden");
       if (toastTimer) clearTimeout(toastTimer);
-      if (duration > 0) {
-        toastTimer = setTimeout(() => el.classList.add("hidden"), duration);
-      }
+      if (duration>0) toastTimer = setTimeout(()=>el.classList.add("hidden"), duration);
     }
   </script>
-
 </body>
 </html>

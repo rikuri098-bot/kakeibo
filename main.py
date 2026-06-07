@@ -15,6 +15,8 @@ from auth_models import AdminUser
 from routers.expenses import expenses_bp
 from routers.auth import auth_bp
 from routers.csv_import import csv_bp
+from routers.categories import categories_bp
+from routers.shortcuts import shortcuts_bp
 
 # ── Flask アプリ初期化 ────────────────────────────────────────
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -39,6 +41,8 @@ def load_user(user_id: str):
 app.register_blueprint(auth_bp)
 app.register_blueprint(expenses_bp)
 app.register_blueprint(csv_bp)
+app.register_blueprint(categories_bp)
+app.register_blueprint(shortcuts_bp)
 
 
 @app.route("/")
