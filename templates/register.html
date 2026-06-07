@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>新規登録 | 家計簿アプリ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>input{font-size:16px;}</style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center px-4 py-8">
+
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-6">
+      <div class="text-5xl mb-3">💰</div>
+      <h1 class="text-2xl font-bold text-indigo-600">アカウントを作成</h1>
+      <p class="text-sm text-gray-400 mt-1">あなた専用の家計簿を始めましょう</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="mb-4 p-3 rounded-lg text-sm bg-red-50 text-red-600 border border-red-200">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST" action="/register" class="bg-white rounded-2xl shadow-lg p-8 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5" for="username">ユーザー名（3文字以上）</label>
+        <input id="username" name="username" type="text" autocomplete="username" required minlength="3"
+          value="{{ username or '' }}" placeholder="ログインに使う名前"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 transition" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5" for="display_name">表示名</label>
+        <input id="display_name" name="display_name" type="text"
+          value="{{ display_name or '' }}" placeholder="アプリ内で表示される名前"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 transition" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5" for="password">パスワード（6文字以上）</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" required minlength="6"
+          placeholder="••••••••"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 transition" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5" for="confirm">パスワード（確認）</label>
+        <input id="confirm" name="confirm" type="password" autocomplete="new-password" required
+          placeholder="••••••••"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 transition" />
+      </div>
+      <button type="submit"
+        class="w-full bg-indigo-500 hover:bg-indigo-600 active:scale-95 text-white font-semibold py-3 rounded-xl transition-all text-sm">
+        登録して始める
+      </button>
+    </form>
+
+    <p class="text-center text-sm text-gray-500 mt-5">
+      すでにアカウントをお持ちですか？
+      <a href="/login" class="text-indigo-600 font-semibold hover:underline">ログイン</a>
+    </p>
+  </div>
+
+</body>
+</html>

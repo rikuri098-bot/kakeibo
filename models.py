@@ -76,6 +76,7 @@ class Shortcut:
     """よく使う支出のワンタップ・ショートカット"""
     id: str
     label: str                      # 表示ラベル（例: コンビニ）
+    emoji: str = "⚡"               # アイコン絵文字
     amount: int = 0                 # 既定金額（0なら入力時に確認）
     category: str = ""              # カテゴリ
     payment_method: str = "PayPay"  # 支払い方法
@@ -84,8 +85,9 @@ class Shortcut:
 
     def to_dict(self) -> dict:
         return {
-            "id": self.id, "label": self.label, "amount": self.amount,
-            "category": self.category, "payment_method": self.payment_method,
+            "id": self.id, "label": self.label, "emoji": self.emoji,
+            "amount": self.amount, "category": self.category,
+            "payment_method": self.payment_method,
             "memo": self.memo, "sort_order": self.sort_order,
         }
 

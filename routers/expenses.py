@@ -1,12 +1,12 @@
 """
-支出関連APIルーター（Flask Blueprint版）
-エンドポイント：
-  GET    /api/expenses        - 全支出一覧取得
-  POST   /api/expenses        - 支出追加
-  DELETE /api/expenses/{id}   - 支出削除
+支出API（ユーザーごとにスコープ）
+  GET    /api/expenses        一覧
+  POST   /api/expenses        追加
+  PATCH  /api/expenses/{id}   更新
+  DELETE /api/expenses/{id}   削除
 """
 from flask import Blueprint, request, jsonify
-from flask_login import login_required
+from flask_login import login_required, current_user
 import uuid
 
 from models import Expense
@@ -18,9 +18,7 @@ expenses_bp = Blueprint("expenses", __name__, url_prefix="/api/expenses")
 @expenses_bp.get("")
 @login_required
 def list_expenses():
-    """全支出を新しい順（日付降順）で返す"""
-    expenses = db.get_all_expenses()
-    # JSONファイルモードのみソートが必要（Supabaseはクエリでソート済み）
+    expenses = db.get_all_expenses(current_user.id)
     if not db.USE_SUPABASE:
         expenses = sorted(expenses, key=lambda e: (e.date, e.id), reverse=True)
     return jsonify([e.to_dict() for e in expenses])
@@ -29,14 +27,10 @@ def list_expenses():
 @expenses_bp.post("")
 @login_required
 def create_expense():
-    """新しい支出を追加する"""
     body = request.get_json()
     if not body:
         return jsonify({"detail": "リクエストボディが無効です"}), 400
-
-    # 必須項目のバリデーション
-    required = ["date", "amount", "category", "payment_method"]
-    for key in required:
+    for key in ("date", "amount", "category", "payment_method"):
         if not body.get(key):
             return jsonify({"detail": f"{key} は必須です"}), 400
 
@@ -48,17 +42,15 @@ def create_expense():
         payment_method=body["payment_method"],
         memo=body.get("memo", ""),
     )
-    db.add_expense(new_expense)
+    db.add_expense(current_user.id, new_expense)
     return jsonify(new_expense.to_dict()), 201
 
 
 @expenses_bp.patch("/<expense_id>")
 @login_required
 def patch_expense(expense_id: str):
-    """支出の一部を更新する（未分類のカテゴリ設定などで使用）"""
     body = request.get_json() or {}
     fields = {}
-    # 更新を許可するフィールドのみ受け付ける
     for key in ("date", "category", "payment_method", "memo"):
         if key in body and body[key] is not None:
             fields[key] = body[key]
@@ -66,8 +58,7 @@ def patch_expense(expense_id: str):
         fields["amount"] = int(body["amount"])
     if not fields:
         return jsonify({"detail": "更新項目がありません"}), 400
-
-    if not db.update_expense(expense_id, fields):
+    if not db.update_expense(current_user.id, expense_id, fields):
         return jsonify({"detail": "支出データが見つかりません"}), 404
     return jsonify({"ok": True, **fields})
 
@@ -75,8 +66,6 @@ def patch_expense(expense_id: str):
 @expenses_bp.delete("/<expense_id>")
 @login_required
 def remove_expense(expense_id: str):
-    """指定IDの支出を削除する"""
-    success = db.delete_expense(expense_id)
-    if not success:
+    if not db.delete_expense(current_user.id, expense_id):
         return jsonify({"detail": "支出データが見つかりません"}), 404
     return "", 204

@@ -40,8 +40,8 @@
         </label>
         <input id="csv-upload" type="file" accept=".csv" class="hidden" onchange="importCSV(this)" />
         <!-- カテゴリ設定 -->
-        <button onclick="openCategoryModal()"
-          class="flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition" title="カテゴリ編集">
+        <button onclick="openAppSettings()"
+          class="flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition" title="設定">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -84,6 +84,7 @@
             class="text-xs text-indigo-500 hover:underline">編集</button>
         </div>
         <div id="shortcuts-list" class="flex flex-wrap gap-2"></div>
+        <div id="shortcut-suggestions" class="mt-3"></div>
       </div>
 
       <!-- 直近の支出タイムライン -->
@@ -146,6 +147,10 @@
           <h2 class="font-semibold text-gray-700 shrink-0">📋 支出一覧</h2>
           <div class="flex items-center gap-2">
             <span id="expense-count" class="text-xs text-gray-400 hidden sm:inline"></span>
+            <button onclick="exportMonthCSV()"
+              class="flex items-center gap-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5
+                     text-gray-600 hover:text-indigo-600 hover:border-indigo-300 transition"
+              title="この月のデータをCSVでダウンロード">⬇ CSV</button>
             <select id="sort-mode" onchange="renderMonthList()"
               class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300">
               <option value="date_desc">日付：新しい順</option>
@@ -235,32 +240,6 @@
   </div>
 
   <!-- カテゴリ管理モーダル -->
-  <div id="category-modal" class="hidden fixed inset-0 z-40">
-    <div class="absolute inset-0 bg-black/40" onclick="closeCategoryModal()"></div>
-    <div class="sheet absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[90vh] overflow-y-auto">
-      <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
-      <div class="flex items-center justify-between mb-4">
-        <p class="font-semibold text-gray-700">⚙️ カテゴリを編集</p>
-        <button onclick="closeCategoryModal()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>
-      </div>
-      <div id="category-list" class="space-y-2 mb-5"></div>
-      <div class="border-t border-gray-100 pt-4">
-        <p class="text-xs font-medium text-gray-500 mb-2">新しいカテゴリを追加</p>
-        <div class="flex items-center gap-2">
-          <input id="newcat-emoji" type="text" value="🏷️" maxlength="2"
-            class="w-12 text-center border border-gray-200 rounded-xl py-2.5 tap-target" />
-          <input id="newcat-color" type="color" value="#6366f1"
-            class="w-12 h-11 border border-gray-200 rounded-xl p-1 cursor-pointer" />
-          <input id="newcat-name" type="text" placeholder="カテゴリ名"
-            class="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-          <button onclick="addCategory()"
-            class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold tap-target">追加</button>
-        </div>
-        <p id="category-error" class="hidden text-xs text-red-500 mt-2"></p>
-      </div>
-    </div>
-  </div>
-
   <!-- 未分類 一括設定モーダル -->
   <div id="uncategorized-modal" class="hidden fixed inset-0 z-40">
     <div class="absolute inset-0 bg-black/40" onclick="closeUncategorizedModal()"></div>
@@ -282,14 +261,21 @@
     <div class="sheet absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[90vh] overflow-y-auto">
       <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
       <div class="flex items-center justify-between mb-4">
-        <p class="font-semibold text-gray-700">⚡ ショートカットを登録</p>
+        <p id="sc-modal-title" class="font-semibold text-gray-700">⚡ ショートカットを登録</p>
         <button onclick="closeShortcutModal()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>
       </div>
       <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">ラベル（例: コンビニ）</label>
-          <input id="sc-label" type="text" placeholder="ボタンに表示する名前"
-            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <div class="flex gap-3">
+          <div class="shrink-0">
+            <label class="block text-xs font-medium text-gray-500 mb-1">アイコン</label>
+            <input id="sc-emoji" type="text" value="⚡" maxlength="2"
+              class="w-14 text-center text-lg border border-gray-200 rounded-xl py-2.5 tap-target" />
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-medium text-gray-500 mb-1">ラベル（例: コンビニ）</label>
+            <input id="sc-label" type="text" placeholder="ボタンに表示する名前"
+              class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -306,56 +292,94 @@
           <label class="block text-xs font-medium text-gray-500 mb-1">支払い方法</label>
           <select id="sc-payment" class="pay-select w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300"></select>
         </div>
-        <button onclick="addShortcut()"
+        <button id="sc-save-btn" onclick="saveShortcut()"
           class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 rounded-xl tap-target">登録する</button>
         <p id="shortcut-error" class="hidden text-xs text-red-500"></p>
       </div>
     </div>
   </div>
 
-  <!-- 予算・通知・パスワード設定モーダル -->
+  <!-- 予算設定モーダル（予算のみ・予算詳細の⚙設定から開く） -->
   <div id="settings-modal" class="hidden fixed inset-0 z-40">
     <div class="absolute inset-0 bg-black/40" onclick="closeSettingsModal()"></div>
     <div class="sheet absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[92vh] overflow-y-auto">
       <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
       <div class="flex items-center justify-between mb-4">
-        <p class="font-semibold text-gray-700">⚙️ 予算・設定</p>
+        <p class="font-semibold text-gray-700">📊 予算設定</p>
         <button onclick="closeSettingsModal()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>
       </div>
-
-      <!-- 予算設定 -->
-      <p class="text-xs font-semibold text-gray-500 mb-2">📊 今月の予算（円）</p>
+      <p class="text-xs font-semibold text-gray-500 mb-2">今月の予算（円）</p>
       <div id="settings-budget-list" class="space-y-2 mb-3"></div>
       <button onclick="saveBudgets()"
         class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold tap-target">予算を保存</button>
+    </div>
+  </div>
 
-      <!-- 通知設定 -->
-      <p class="text-xs font-semibold text-gray-500 mb-2 border-t border-gray-100 pt-4 mt-5">🔔 通知設定</p>
-      <label class="flex items-center justify-between py-2">
-        <span class="text-sm text-gray-600">残り予算を常時表示する</span>
-        <input id="set-always" type="checkbox" class="w-5 h-5 accent-indigo-500" />
-      </label>
-      <label class="flex items-center justify-between py-2">
-        <span class="text-sm text-gray-600">残り何%で通知するか</span>
-        <select id="set-threshold" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
-          <option value="20">20%</option><option value="10">10%</option><option value="5">5%</option>
-        </select>
-      </label>
-      <button onclick="saveNotifySettings()"
-        class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold mt-2 tap-target">通知設定を保存</button>
+  <!-- アプリ設定モーダル（カテゴリ管理・通知設定・パスワード変更）：右上⚙から開く -->
+  <div id="app-settings-modal" class="hidden fixed inset-0 z-40">
+    <div class="absolute inset-0 bg-black/40" onclick="closeAppSettings()"></div>
+    <div class="sheet absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[92vh] overflow-y-auto">
+      <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-4">
+        <p class="font-semibold text-gray-700">⚙️ 設定</p>
+        <button onclick="closeAppSettings()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>
+      </div>
 
-      <!-- パスワード変更 -->
-      <p class="text-xs font-semibold text-gray-500 mb-2 border-t border-gray-100 pt-4 mt-5">🔑 パスワード変更</p>
-      <div class="space-y-2">
-        <input id="pw-current" type="password" placeholder="現在のパスワード"
-          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        <input id="pw-new" type="password" placeholder="新しいパスワード（6文字以上）"
-          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        <input id="pw-confirm" type="password" placeholder="新しいパスワード（確認）"
-          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        <button onclick="changePassword()"
-          class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2.5 rounded-xl text-sm font-semibold tap-target">パスワードを変更</button>
-        <p id="pw-msg" class="hidden text-xs"></p>
+      <!-- セクションタブ -->
+      <div class="flex gap-1 bg-gray-100 rounded-xl p-1 mb-4 text-xs">
+        <button id="settab-cat" onclick="switchSettingsSection('cat')" class="flex-1 py-2 rounded-lg font-medium">🏷️ カテゴリ</button>
+        <button id="settab-notify" onclick="switchSettingsSection('notify')" class="flex-1 py-2 rounded-lg font-medium">🔔 通知</button>
+        <button id="settab-pw" onclick="switchSettingsSection('pw')" class="flex-1 py-2 rounded-lg font-medium">🔑 パスワード</button>
+      </div>
+
+      <!-- カテゴリ管理セクション -->
+      <div id="setsec-cat">
+        <div id="category-list" class="space-y-2 mb-4"></div>
+        <div class="border-t border-gray-100 pt-4">
+          <p class="text-xs font-medium text-gray-500 mb-2">新しいカテゴリを追加</p>
+          <div class="flex items-center gap-2">
+            <input id="newcat-emoji" type="text" value="🏷️" maxlength="2"
+              class="w-12 text-center border border-gray-200 rounded-xl py-2.5 tap-target" />
+            <input id="newcat-color" type="color" value="#6366f1"
+              class="w-12 h-11 border border-gray-200 rounded-xl p-1 cursor-pointer" />
+            <input id="newcat-name" type="text" placeholder="カテゴリ名"
+              class="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            <button onclick="addCategory()"
+              class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold tap-target">追加</button>
+          </div>
+          <p id="category-error" class="hidden text-xs text-red-500 mt-2"></p>
+        </div>
+      </div>
+
+      <!-- 通知設定セクション -->
+      <div id="setsec-notify" class="hidden">
+        <label class="flex items-center justify-between py-2">
+          <span class="text-sm text-gray-600">残り予算を常時表示する</span>
+          <input id="set-always" type="checkbox" class="w-5 h-5 accent-indigo-500" />
+        </label>
+        <label class="flex items-center justify-between py-2">
+          <span class="text-sm text-gray-600">残り何%で通知するか</span>
+          <select id="set-threshold" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+            <option value="20">20%</option><option value="10">10%</option><option value="5">5%</option>
+          </select>
+        </label>
+        <button onclick="saveNotifySettings()"
+          class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold mt-2 tap-target">通知設定を保存</button>
+      </div>
+
+      <!-- パスワード変更セクション -->
+      <div id="setsec-pw" class="hidden">
+        <div class="space-y-2">
+          <input id="pw-current" type="password" placeholder="現在のパスワード"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+          <input id="pw-new" type="password" placeholder="新しいパスワード（6文字以上）"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+          <input id="pw-confirm" type="password" placeholder="新しいパスワード（確認）"
+            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+          <button onclick="changePassword()"
+            class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2.5 rounded-xl text-sm font-semibold tap-target">パスワードを変更</button>
+          <p id="pw-msg" class="hidden text-xs"></p>
+        </div>
       </div>
     </div>
   </div>
@@ -373,6 +397,8 @@
     let currentYear  = new Date().getFullYear();
     let editingId    = null;        // 入力モーダルが編集モードのとき対象ID
     let shortcutEditMode = false;
+    let editingShortcutId = null;   // ショートカット編集モーダルの対象ID
+    let suggestionList = [];        // ショートカット候補（提案）
     let budgets = {};               // 今月の予算 category(or 'total') -> amount
     let appSettings = { always_show_remaining:false, notify_threshold:20 };
     const realMonthStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
@@ -606,25 +632,132 @@
 
     function renderShortcuts(){
       const el = document.getElementById("shortcuts-list");
-      const chips = shortcuts.map(s => {
-        const st = catStyle(s.category);
-        const amt = s.amount ? `¥${s.amount.toLocaleString()}` : "都度入力";
-        const del = shortcutEditMode
-          ? `<button onclick="event.stopPropagation();deleteShortcut('${s.id}')" class="ml-1 text-red-400 hover:text-red-600">✕</button>` : "";
-        return `<button onclick="useShortcut('${s.id}')"
-          class="flex items-center gap-1.5 border rounded-full pl-3 pr-3 py-2 text-sm hover:shadow-sm active:scale-95 transition tap-target"
-          style="border-color:${st.color}55;background:${st.color}11">
-          <span>${st.emoji}</span>
-          <span class="font-medium text-gray-700">${s.label}</span>
-          <span class="text-xs text-gray-400">${amt}</span>${del}
-        </button>`;
-      }).join("");
-      el.innerHTML = chips + `
-        <button onclick="openShortcutModal()"
-          class="flex items-center gap-1 border border-dashed border-gray-300 text-gray-400
-                 rounded-full px-3 py-2 text-sm hover:border-indigo-300 hover:text-indigo-500 transition tap-target">
-          ＋ 登録
-        </button>`;
+
+      if (shortcutEditMode){
+        // 編集モード：ドラッグで並び替えできる縦リスト
+        el.className = "space-y-2";
+        el.innerHTML = shortcuts.map(s => {
+          const emoji = s.emoji || catStyle(s.category).emoji;
+          const amt = s.amount ? `¥${s.amount.toLocaleString()}` : "都度入力";
+          return `<div class="sc-row flex items-center gap-2 p-2 rounded-xl border border-gray-100 bg-white" data-id="${s.id}">
+            <span class="sc-handle cursor-grab text-gray-300 select-none px-1 text-lg" style="touch-action:none" title="ドラッグで並び替え">⠿</span>
+            <span class="text-lg">${emoji}</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium truncate">${s.label}</p>
+              <p class="text-xs text-gray-400 truncate">${amt}・${s.category || "未分類"}</p>
+            </div>
+            <button onclick="openShortcutEdit('${s.id}')" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-indigo-500 hover:bg-indigo-50">✎</button>
+            <button onclick="deleteShortcut('${s.id}')" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50">✕</button>
+          </div>`;
+        }).join("") || '<p class="text-xs text-gray-400 py-1">ショートカットがありません</p>';
+        el.innerHTML += `<button class="sc-addbtn mt-1 w-full border border-dashed border-gray-300 text-gray-400 rounded-xl py-2 text-sm hover:border-indigo-300 hover:text-indigo-500" onclick="openShortcutModal()">＋ 新規登録</button>`;
+        enableShortcutReorder();
+      } else {
+        // 通常モード：横並びチップ（タップで即記録）
+        el.className = "flex flex-wrap gap-2";
+        const chips = shortcuts.map(s => {
+          const st = catStyle(s.category);
+          const emoji = s.emoji || st.emoji;
+          const amt = s.amount ? `¥${s.amount.toLocaleString()}` : "都度入力";
+          return `<button onclick="useShortcut('${s.id}')"
+            class="flex items-center gap-1.5 border rounded-full px-3 py-2 text-sm hover:shadow-sm active:scale-95 transition tap-target"
+            style="border-color:${st.color}55;background:${st.color}11">
+            <span>${emoji}</span><span class="font-medium text-gray-700">${s.label}</span>
+            <span class="text-xs text-gray-400">${amt}</span>
+          </button>`;
+        }).join("");
+        el.innerHTML = chips + `
+          <button onclick="openShortcutModal()"
+            class="flex items-center gap-1 border border-dashed border-gray-300 text-gray-400
+                   rounded-full px-3 py-2 text-sm hover:border-indigo-300 hover:text-indigo-500 transition tap-target">
+            ＋ 登録
+          </button>`;
+      }
+      renderSuggestions();
+    }
+
+    // よく使う支出トップ3を提案（同名ショートカット未登録のもの）
+    function renderSuggestions(){
+      const el = document.getElementById("shortcut-suggestions");
+      if (shortcutEditMode){ el.innerHTML = ""; return; }
+      const groups = {};
+      for (const e of allExpenses){
+        const label = (e.memo || "").trim();
+        if (!label) continue;
+        const g = groups[label] || (groups[label] = { count: 0, amounts: {}, category: e.category, payment: e.payment_method });
+        g.count++; g.amounts[e.amount] = (g.amounts[e.amount] || 0) + 1;
+        g.category = e.category; g.payment = e.payment_method;
+      }
+      const existing = new Set(shortcuts.map(s => s.label));
+      const top = Object.entries(groups)
+        .filter(([label, g]) => g.count >= 2 && !existing.has(label))
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 3);
+      if (!top.length){ el.innerHTML = ""; return; }
+      suggestionList = top.map(([label, g]) => {
+        const amount = parseInt(Object.entries(g.amounts).sort((a, b) => b[1] - a[1])[0][0]);
+        return { label, amount, category: g.category, payment: g.payment, emoji: catStyle(g.category).emoji };
+      });
+      el.innerHTML = `<p class="text-xs text-gray-400 mb-1.5">💡 よく使う支出を登録しませんか？</p>
+        <div class="flex flex-wrap gap-2">` + suggestionList.map((s, i) => {
+          const st = catStyle(s.category);
+          return `<button onclick="suggestShortcut(${i})"
+            class="flex items-center gap-1 border border-dashed rounded-full px-3 py-1.5 text-xs hover:shadow-sm transition"
+            style="border-color:${st.color}77">
+            <span>${s.emoji}</span><span class="font-medium text-gray-600">${s.label}</span>
+            <span class="text-gray-400">¥${s.amount.toLocaleString()}</span>
+            <span class="text-indigo-500 font-bold ml-0.5">＋</span>
+          </button>`;
+        }).join("") + `</div>`;
+    }
+
+    function suggestShortcut(i){
+      const s = suggestionList[i]; if (!s) return;
+      openShortcutModal();
+      document.getElementById("sc-emoji").value = s.emoji || "⚡";
+      document.getElementById("sc-label").value = s.label;
+      document.getElementById("sc-amount").value = s.amount || "";
+      document.getElementById("sc-category").value = s.category || "";
+      document.getElementById("sc-payment").value = s.payment || "PayPay";
+    }
+
+    // ショートカットのドラッグ並び替え（ポインタ操作：タッチ・マウス両対応）
+    function enableShortcutReorder(){
+      const list = document.getElementById("shortcuts-list");
+      const addBtn = list.querySelector(".sc-addbtn");
+      list.querySelectorAll(".sc-handle").forEach(handle => {
+        handle.addEventListener("pointerdown", (ev) => {
+          ev.preventDefault();
+          const dragEl = handle.closest(".sc-row");
+          dragEl.classList.add("opacity-60", "ring-2", "ring-indigo-300");
+          const move = (e) => {
+            const rows = [...list.querySelectorAll(".sc-row")].filter(r => r !== dragEl);
+            let placed = false;
+            for (const r of rows){
+              const rect = r.getBoundingClientRect();
+              if (e.clientY < rect.top + rect.height / 2){ list.insertBefore(dragEl, r); placed = true; break; }
+            }
+            if (!placed && addBtn) list.insertBefore(dragEl, addBtn);
+          };
+          const up = async () => {
+            document.removeEventListener("pointermove", move);
+            document.removeEventListener("pointerup", up);
+            dragEl.classList.remove("opacity-60", "ring-2", "ring-indigo-300");
+            await persistShortcutOrder();
+          };
+          document.addEventListener("pointermove", move);
+          document.addEventListener("pointerup", up);
+        });
+      });
+    }
+
+    async function persistShortcutOrder(){
+      const ids = [...document.querySelectorAll("#shortcuts-list .sc-row")].map(r => r.dataset.id);
+      await Promise.all(ids.map((id, i) =>
+        fetch(`/api/shortcuts/${id}`, { method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: i + 1 }) })));
+      await loadShortcuts();
     }
 
     // 通知エリア（予算＋未分類を統合）
@@ -703,13 +836,9 @@
         </div></div>`;
     }
 
-    // ===== 設定モーダル（予算・通知・パスワード） =====
+    // ===== 予算設定モーダル（予算のみ） =====
     function openSettingsModal(){
       renderSettingsBudgetInputs();
-      document.getElementById("set-always").checked = appSettings.always_show_remaining;
-      document.getElementById("set-threshold").value = String(appSettings.notify_threshold);
-      const msg = document.getElementById("pw-msg"); msg.classList.add("hidden");
-      ["pw-current","pw-new","pw-confirm"].forEach(id=>document.getElementById(id).value="");
       showSheetStatic("settings-modal");
     }
     function closeSettingsModal(){ document.getElementById("settings-modal").classList.add("hidden"); }
@@ -890,6 +1019,28 @@
       }
     }
 
+    // 月次CSVエクスポート（UTF-8 BOM・Excel対応）
+    function csvCell(v){
+      const s = String(v ?? "");
+      return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+    function exportMonthCSV(){
+      const mode = document.getElementById("sort-mode").value;
+      const rows = sortExpenses(getMonthExpenses(), mode);
+      if (!rows.length){ showToast("この月のデータがありません"); return; }
+      const header = ["日付", "金額", "カテゴリ", "支払い方法", "メモ"];
+      const lines = [header, ...rows.map(e => [e.date, e.amount, e.category, e.payment_method, e.memo || ""])];
+      const csv = lines.map(r => r.map(csvCell).join(",")).join("\r\n");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+      const y = currentMonth.getFullYear(), m = String(currentMonth.getMonth() + 1).padStart(2, "0");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `家計簿_${y}年${m}月.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+      showToast("✅ CSVをダウンロードしました");
+    }
+
     // ============================================================
     // 年間ビュー
     // ============================================================
@@ -1015,10 +1166,28 @@
     }
 
     // ============================================================
-    // カテゴリ管理モーダル
+    // アプリ設定モーダル（カテゴリ管理・通知設定・パスワード変更）
     // ============================================================
-    function openCategoryModal(){ renderCategoryList(); showSheetStatic("category-modal"); }
-    function closeCategoryModal(){ document.getElementById("category-modal").classList.add("hidden"); }
+    function openAppSettings(){
+      renderCategoryList();
+      document.getElementById("set-always").checked = appSettings.always_show_remaining;
+      document.getElementById("set-threshold").value = String(appSettings.notify_threshold);
+      document.getElementById("pw-msg").classList.add("hidden");
+      ["pw-current","pw-new","pw-confirm"].forEach(id=>document.getElementById(id).value="");
+      switchSettingsSection("cat");
+      showSheetStatic("app-settings-modal");
+    }
+    function closeAppSettings(){ document.getElementById("app-settings-modal").classList.add("hidden"); }
+    function switchSettingsSection(sec){
+      ["cat","notify","pw"].forEach(s=>{
+        document.getElementById("setsec-"+s).classList.toggle("hidden", s!==sec);
+        const tab = document.getElementById("settab-"+s);
+        tab.classList.toggle("bg-white", s===sec);
+        tab.classList.toggle("shadow-sm", s===sec);
+        tab.classList.toggle("text-indigo-600", s===sec);
+        tab.classList.toggle("text-gray-500", s!==sec);
+      });
+    }
 
     function renderCategoryList(){
       const el = document.getElementById("category-list");
@@ -1105,6 +1274,10 @@
     // ショートカット登録モーダル
     // ============================================================
     function openShortcutModal(){
+      editingShortcutId = null;
+      document.getElementById("sc-modal-title").textContent = "⚡ ショートカットを登録";
+      document.getElementById("sc-save-btn").textContent = "登録する";
+      document.getElementById("sc-emoji").value = "⚡";
       document.getElementById("sc-label").value = "";
       document.getElementById("sc-amount").value = "";
       document.getElementById("sc-category").value = "";
@@ -1112,26 +1285,45 @@
       document.getElementById("shortcut-error").classList.add("hidden");
       showSheetStatic("shortcut-modal");
     }
+    function openShortcutEdit(id){
+      const s = shortcuts.find(x => x.id === id); if (!s) return;
+      editingShortcutId = id;
+      document.getElementById("sc-modal-title").textContent = "⚡ ショートカットを編集";
+      document.getElementById("sc-save-btn").textContent = "保存する";
+      document.getElementById("sc-emoji").value = s.emoji || "⚡";
+      document.getElementById("sc-label").value = s.label;
+      document.getElementById("sc-amount").value = s.amount || "";
+      document.getElementById("sc-category").value = s.category || "";
+      document.getElementById("sc-payment").value = s.payment_method || "PayPay";
+      document.getElementById("shortcut-error").classList.add("hidden");
+      showSheetStatic("shortcut-modal");
+    }
     function closeShortcutModal(){ document.getElementById("shortcut-modal").classList.add("hidden"); }
 
-    async function addShortcut(){
+    async function saveShortcut(){
       const label = document.getElementById("sc-label").value.trim();
       const err = document.getElementById("shortcut-error");
       err.classList.add("hidden");
-      if (!label){ err.textContent="ラベルを入力してください"; err.classList.remove("hidden"); return; }
+      if (!label){ err.textContent = "ラベルを入力してください"; err.classList.remove("hidden"); return; }
       const body = {
         label,
+        emoji: document.getElementById("sc-emoji").value.trim() || "⚡",
         amount: parseInt(document.getElementById("sc-amount").value) || 0,
         category: document.getElementById("sc-category").value,
         payment_method: document.getElementById("sc-payment").value || "PayPay",
-        memo: "",
       };
-      const res = await fetch("/api/shortcuts", { method:"POST",
-        headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
-      if (!res.ok){ err.textContent=(await res.json()).detail||"登録に失敗"; err.classList.remove("hidden"); return; }
+      let res;
+      if (editingShortcutId){
+        res = await fetch(`/api/shortcuts/${editingShortcutId}`, { method: "PUT",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      } else {
+        res = await fetch("/api/shortcuts", { method: "POST",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, memo: "" }) });
+      }
+      if (!res.ok){ err.textContent = (await res.json()).detail || "保存に失敗"; err.classList.remove("hidden"); return; }
       closeShortcutModal();
       await loadShortcuts(); renderShortcuts();
-      showToast("✅ ショートカットを登録しました");
+      showToast(editingShortcutId ? "✅ ショートカットを更新しました" : "✅ ショートカットを登録しました");
     }
 
     async function deleteShortcut(id){

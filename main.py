@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 # .envファイルから環境変数を読み込む（インポートより先に実行）
 load_dotenv()
 
-from auth_models import AdminUser
+from auth_models import User
+import db
 from routers.expenses import expenses_bp
 from routers.auth import auth_bp
 from routers.csv_import import csv_bp
@@ -30,14 +31,11 @@ login_manager.init_app(app)
 login_manager.login_view = "auth.login_page"      # 未ログイン時のリダイレクト先
 login_manager.login_message = "ログインが必要です"
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-
 @login_manager.user_loader
 def load_user(user_id: str):
     """セッションからユーザーを復元する（Flask-Login が呼び出す）"""
-    if user_id == ADMIN_USERNAME:
-        return AdminUser(user_id)
-    return None
+    user = db.get_user_by_id(user_id)
+    return User.from_dict(user) if user else None
 
 # ── Blueprint 登録 ────────────────────────────────────────────
 app.register_blueprint(auth_bp)

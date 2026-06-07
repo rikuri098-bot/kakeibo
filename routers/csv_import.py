@@ -15,7 +15,7 @@ import io
 import uuid
 import re
 from flask import Blueprint, request, jsonify
-from flask_login import login_required
+from flask_login import login_required, current_user
 
 from models import Expense
 import db
@@ -136,7 +136,7 @@ def import_csv():
     payment_method = "PayPayカード" if is_new_format else "PayPay"
 
     # 既存データを取得して重複チェック用セットを作る（date, amount, memo）
-    existing = db.get_all_expenses()
+    existing = db.get_all_expenses(current_user.id)
     existing_keys = {(e.date, e.amount, e.memo) for e in existing}
 
     added = 0
@@ -192,7 +192,7 @@ def import_csv():
                 payment_method=payment_method,
                 memo=memo,
             )
-            db.add_expense(new_expense)
+            db.add_expense(current_user.id, new_expense)
             existing_keys.add(key)
             added += 1
 
