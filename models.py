@@ -29,5 +29,12 @@ class Expense:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Expense":
-        """dictからExpenseを生成（JSON読み込み用）"""
-        return cls(**data)
+        """dictからExpenseを生成（JSON/Supabase読み込み用）
+
+        created_at などモデルに無い余分なカラムは無視する。
+        （Supabaseは return=representation で created_at も返すため）
+        """
+        from dataclasses import fields
+        allowed = {f.name for f in fields(cls)}
+        filtered = {k: v for k, v in data.items() if k in allowed}
+        return cls(**filtered)

@@ -7,4 +7,5 @@ __pycache__/
 .claude/
 setup_db.py
 supabase_setup.sql
+_*.py
 *.md
