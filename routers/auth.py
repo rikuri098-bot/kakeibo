@@ -4,8 +4,8 @@
   GET/POST /register  新規登録（登録後は自動ログイン）
   GET      /logout    ログアウト
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from flask_login import login_user, logout_user, login_required
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import login_user, logout_user, login_required, current_user
 
 from auth_models import User
 from auth_utils import hash_password, check_password
@@ -75,3 +75,13 @@ def register_post():
 def logout():
     logout_user()
     return redirect(url_for("auth.login_page"))
+
+
+@auth_bp.delete("/api/auth/account")
+@login_required
+def delete_account():
+    """ログイン中ユーザーの全データとアカウント自身を削除する"""
+    user_id = current_user.id
+    db.delete_account(user_id)
+    logout_user()
+    return jsonify({"ok": True, "message": "アカウントを削除しました"})

@@ -126,6 +126,24 @@ def get_user_by_id(user_id: str) -> Optional[dict]:
     return None
 
 
+def delete_account(user_id: str) -> bool:
+    """ユーザーの全データ（5テーブル）を削除し、最後にユーザー自身を削除する"""
+    if USE_SUPABASE:
+        for table in ("expenses", "budgets", "categories", "shortcuts", "settings"):
+            res = requests.delete(f"{SUPABASE_URL}/rest/v1/{table}",
+                                  headers=_sb_headers(), params={"user_id": f"eq.{user_id}"})
+            res.raise_for_status()
+        res = requests.delete(f"{SUPABASE_URL}/rest/v1/users",
+                              headers=_sb_headers(), params={"id": f"eq.{user_id}"})
+        res.raise_for_status()
+        return True
+    # JSON フォールバック
+    for table in ("expenses", "budgets", "categories", "shortcuts", "settings"):
+        _json_save(table, [r for r in _json_load(table) if r.get("user_id") != user_id])
+    _json_save("users", [u for u in _json_load("users") if u.get("id") != user_id])
+    return True
+
+
 def set_user_password(user_id: str, password_hash: str) -> bool:
     """ユーザーのパスワードハッシュを更新する"""
     if USE_SUPABASE:
