@@ -67,6 +67,9 @@
     <!-- ============================ ホーム ============================ -->
     <section id="view-home" class="space-y-5">
 
+      <!-- 通知エリア（予算・未分類を統合。何もなければ非表示） -->
+      <div id="notif-area" class="hidden space-y-2"></div>
+
       <!-- 常設・即入力フォーム -->
       <div id="home-form-card" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <p class="text-sm font-semibold text-gray-700 mb-3">✏️ 支出を入力</p>
@@ -83,17 +86,6 @@
         <div id="shortcuts-list" class="flex flex-wrap gap-2"></div>
       </div>
 
-      <!-- 未分類To-Do通知 -->
-      <button id="todo-banner" onclick="openUncategorizedModal()"
-        class="hidden w-full text-left bg-amber-50 border border-amber-200 rounded-2xl p-4
-               flex items-center gap-3 hover:bg-amber-100 transition tap-target">
-        <span class="text-2xl">⚠️</span>
-        <div class="min-w-0 flex-1">
-          <p id="todo-text" class="text-sm font-semibold text-amber-800"></p>
-          <p class="text-xs text-amber-600 mt-0.5">タップしてカテゴリを設定 →</p>
-        </div>
-      </button>
-
       <!-- 直近の支出タイムライン -->
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <div class="flex items-center justify-between mb-4">
@@ -103,6 +95,16 @@
         <div id="timeline-list" class="space-y-2.5">
           <p class="text-sm text-gray-400 text-center py-6 animate-pulse">読み込み中...</p>
         </div>
+      </div>
+
+      <!-- 予算詳細セクション -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-sm font-semibold text-gray-700">📊 今月の予算</p>
+          <button onclick="openSettingsModal()"
+            class="flex items-center gap-1 text-xs text-indigo-500 hover:underline">⚙ 設定</button>
+        </div>
+        <div id="budget-detail-list" class="space-y-1.5"></div>
       </div>
     </section>
 
@@ -311,6 +313,53 @@
     </div>
   </div>
 
+  <!-- 予算・通知・パスワード設定モーダル -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-40">
+    <div class="absolute inset-0 bg-black/40" onclick="closeSettingsModal()"></div>
+    <div class="sheet absolute bottom-0 inset-x-0 bg-white rounded-t-3xl p-5 max-h-[92vh] overflow-y-auto">
+      <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-4">
+        <p class="font-semibold text-gray-700">⚙️ 予算・設定</p>
+        <button onclick="closeSettingsModal()" class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100">✕</button>
+      </div>
+
+      <!-- 予算設定 -->
+      <p class="text-xs font-semibold text-gray-500 mb-2">📊 今月の予算（円）</p>
+      <div id="settings-budget-list" class="space-y-2 mb-3"></div>
+      <button onclick="saveBudgets()"
+        class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold tap-target">予算を保存</button>
+
+      <!-- 通知設定 -->
+      <p class="text-xs font-semibold text-gray-500 mb-2 border-t border-gray-100 pt-4 mt-5">🔔 通知設定</p>
+      <label class="flex items-center justify-between py-2">
+        <span class="text-sm text-gray-600">残り予算を常時表示する</span>
+        <input id="set-always" type="checkbox" class="w-5 h-5 accent-indigo-500" />
+      </label>
+      <label class="flex items-center justify-between py-2">
+        <span class="text-sm text-gray-600">残り何%で通知するか</span>
+        <select id="set-threshold" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm">
+          <option value="20">20%</option><option value="10">10%</option><option value="5">5%</option>
+        </select>
+      </label>
+      <button onclick="saveNotifySettings()"
+        class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-semibold mt-2 tap-target">通知設定を保存</button>
+
+      <!-- パスワード変更 -->
+      <p class="text-xs font-semibold text-gray-500 mb-2 border-t border-gray-100 pt-4 mt-5">🔑 パスワード変更</p>
+      <div class="space-y-2">
+        <input id="pw-current" type="password" placeholder="現在のパスワード"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <input id="pw-new" type="password" placeholder="新しいパスワード（6文字以上）"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <input id="pw-confirm" type="password" placeholder="新しいパスワード（確認）"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm tap-target focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <button onclick="changePassword()"
+          class="w-full bg-gray-700 hover:bg-gray-800 text-white py-2.5 rounded-xl text-sm font-semibold tap-target">パスワードを変更</button>
+        <p id="pw-msg" class="hidden text-xs"></p>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ============================================================
     // 状態
@@ -324,6 +373,9 @@
     let currentYear  = new Date().getFullYear();
     let editingId    = null;        // 入力モーダルが編集モードのとき対象ID
     let shortcutEditMode = false;
+    let budgets = {};               // 今月の予算 category(or 'total') -> amount
+    let appSettings = { always_show_remaining:false, notify_threshold:20 };
+    const realMonthStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
     const charts = { pie:null, line:null, yearLine:null, yearPie:null };
     const PAYMENTS = ["PayPay", "PayPayカード", "クレジットカード", "現金", "その他"];
     const PAY_EMOJI = { "PayPay":"🟡","PayPayカード":"💳","クレジットカード":"💳","現金":"💴","その他":"💰" };
@@ -377,7 +429,22 @@
         allExpenses = await res.json();
       } catch { allExpenses = []; }
       await loadShortcuts();
+      await loadBudgetsAndSettings();
       renderCurrentTab();
+    }
+
+    async function loadBudgetsAndSettings(){
+      try {
+        const bs = await (await fetch(`/api/budgets?month=${realMonthStr()}`)).json();
+        budgets = {}; for (const b of bs) budgets[b.category] = b.amount;
+      } catch { budgets = {}; }
+      try {
+        const s = await (await fetch("/api/settings")).json();
+        appSettings = {
+          always_show_remaining: s.always_show_remaining === "true",
+          notify_threshold: parseInt(s.notify_threshold) || 20,
+        };
+      } catch {}
     }
 
     // ============================================================
@@ -522,9 +589,10 @@
     // ホーム描画
     // ============================================================
     function renderHome(){
+      renderNotifications();
       renderShortcuts();
-      renderTodo();
       renderTimeline();
+      renderBudgetDetail();
     }
 
     function renderTimeline(){
@@ -559,14 +627,152 @@
         </button>`;
     }
 
-    function renderTodo(){
+    // 通知エリア（予算＋未分類を統合）
+    function renderNotifications(){
+      const area = document.getElementById("notif-area");
+      const m = realMonthStr();
+      const spent = allExpenses.filter(e => e.date.startsWith(m)).reduce((s,e)=>s+e.amount,0);
+      const html = [];
+
+      // 予算通知
+      const totalBudget = budgets["total"];
+      if (totalBudget && totalBudget > 0){
+        const remaining = totalBudget - spent;
+        const pct = Math.round(remaining / totalBudget * 100);
+        if (remaining < 0){
+          html.push(`<div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+            <p class="text-sm font-bold text-red-700">⚠️ 今月 ¥${(-remaining).toLocaleString()} 超過しています</p>
+            <p class="text-xs text-red-500 mt-0.5">予算 ¥${totalBudget.toLocaleString()} ／ 使用 ¥${spent.toLocaleString()}</p></div>`);
+        } else if (pct <= appSettings.notify_threshold){
+          html.push(`<div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <p class="text-sm font-bold text-amber-800">🔔 今月の残り予算が ¥${remaining.toLocaleString()}（${pct}%）です</p></div>`);
+        } else if (appSettings.always_show_remaining){
+          html.push(`<div class="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+            <p class="text-sm font-semibold text-gray-700">残り予算 ¥${remaining.toLocaleString()}（${pct}%）</p></div>`);
+        }
+      }
+
+      // 未分類通知
       const unc = allExpenses.filter(e => !e.category || e.category === UNCATEGORIZED);
-      const banner = document.getElementById("todo-banner");
       if (unc.length){
-        document.getElementById("todo-text").textContent = `未分類の支出が ${unc.length}件 あります`;
-        banner.classList.remove("hidden");
+        html.push(`<button onclick="openUncategorizedModal()"
+          class="w-full text-left bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 hover:bg-amber-100 transition tap-target">
+          <span class="text-xl">📂</span>
+          <p class="text-sm font-semibold text-amber-800 flex-1">未分類が ${unc.length}件 あります</p>
+          <span class="text-xs text-amber-600 font-medium">→整理</span></button>`);
+      }
+
+      if (html.length){ area.innerHTML = html.join(""); area.classList.remove("hidden"); }
+      else { area.innerHTML = ""; area.classList.add("hidden"); }
+    }
+
+    // 予算詳細セクション（カテゴリ別プログレスバー）
+    function renderBudgetDetail(){
+      const m = realMonthStr();
+      const monthExp = allExpenses.filter(e => e.date.startsWith(m));
+      const spentByCat = aggregate(monthExp);
+      const totalSpent = monthExp.reduce((s,e)=>s+e.amount,0);
+      const el = document.getElementById("budget-detail-list");
+      let html = "";
+
+      if (budgets["total"]) html += budgetBar("💰 全体", totalSpent, budgets["total"], "#6366f1");
+
+      for (const c of categories){
+        const b = budgets[c.name];
+        const spent = spentByCat[c.name] || 0;
+        if (b) html += budgetBar(`${c.emoji} ${c.name}`, spent, b, c.color);
+        else html += `<div class="flex justify-between items-center py-1.5">
+          <span class="text-sm text-gray-500">${c.emoji} ${c.name}</span>
+          <span class="text-xs text-gray-300">設定なし</span></div>`;
+      }
+      el.innerHTML = html || '<p class="text-xs text-gray-400 py-2">「⚙設定」から予算を設定できます</p>';
+    }
+
+    function budgetBar(label, spent, budget, color){
+      const pct = budget>0 ? Math.min(100, Math.round(spent/budget*100)) : 0;
+      const over = spent > budget;
+      const barColor = over ? "#ef4444" : color;
+      const overText = over ? `（¥${(spent-budget).toLocaleString()}超過）` : "";
+      return `<div class="space-y-1 py-1.5">
+        <div class="flex justify-between text-xs gap-2">
+          <span class="font-medium ${over?'text-red-600':'text-gray-600'} shrink-0">${label}</span>
+          <span class="${over?'text-red-600 font-bold':'text-gray-500'} text-right">¥${spent.toLocaleString()} / ¥${budget.toLocaleString()}${overText}</span>
+        </div>
+        <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full rounded-full transition-all" style="width:${pct}%;background:${barColor}"></div>
+        </div></div>`;
+    }
+
+    // ===== 設定モーダル（予算・通知・パスワード） =====
+    function openSettingsModal(){
+      renderSettingsBudgetInputs();
+      document.getElementById("set-always").checked = appSettings.always_show_remaining;
+      document.getElementById("set-threshold").value = String(appSettings.notify_threshold);
+      const msg = document.getElementById("pw-msg"); msg.classList.add("hidden");
+      ["pw-current","pw-new","pw-confirm"].forEach(id=>document.getElementById(id).value="");
+      showSheetStatic("settings-modal");
+    }
+    function closeSettingsModal(){ document.getElementById("settings-modal").classList.add("hidden"); }
+
+    function renderSettingsBudgetInputs(){
+      let html = `<div class="flex items-center gap-2">
+        <span class="text-sm font-medium text-gray-700 flex-1">💰 全体の合計予算</span>
+        <input id="budget-total" type="number" min="0" inputmode="numeric" placeholder="未設定" value="${budgets['total']||''}"
+          class="w-28 border border-gray-200 rounded-lg px-2 py-2 text-sm text-right" /></div>`;
+      for (const c of categories){
+        html += `<div class="flex items-center gap-2">
+          <span class="text-sm text-gray-600 flex-1">${c.emoji} ${c.name}</span>
+          <input data-cat="${c.name}" type="number" min="0" inputmode="numeric" placeholder="未設定" value="${budgets[c.name]||''}"
+            class="budget-input w-28 border border-gray-200 rounded-lg px-2 py-2 text-sm text-right" /></div>`;
+      }
+      document.getElementById("settings-budget-list").innerHTML = html;
+    }
+
+    async function saveBudgets(){
+      const m = realMonthStr();
+      const reqs = [];
+      const total = document.getElementById("budget-total").value;
+      reqs.push(fetch("/api/budgets",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({category:"total",amount:parseInt(total)||0,month:m})}));
+      for (const inp of document.querySelectorAll(".budget-input")){
+        reqs.push(fetch("/api/budgets",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({category:inp.dataset.cat,amount:parseInt(inp.value)||0,month:m})}));
+      }
+      await Promise.all(reqs);
+      await loadBudgetsAndSettings();
+      renderCurrentTab();
+      showToast("✅ 予算を保存しました");
+    }
+
+    async function saveNotifySettings(){
+      await fetch("/api/settings",{method:"PUT",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          always_show_remaining: document.getElementById("set-always").checked,
+          notify_threshold: parseInt(document.getElementById("set-threshold").value),
+        })});
+      await loadBudgetsAndSettings();
+      renderCurrentTab();
+      showToast("✅ 通知設定を保存しました");
+    }
+
+    async function changePassword(){
+      const msg = document.getElementById("pw-msg"); msg.classList.add("hidden");
+      const body = {
+        current: document.getElementById("pw-current").value,
+        new:     document.getElementById("pw-new").value,
+        confirm: document.getElementById("pw-confirm").value,
+      };
+      const res = await fetch("/api/settings/password",{method:"POST",
+        headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const data = await res.json();
+      msg.classList.remove("hidden");
+      if (res.ok){
+        msg.className = "text-xs text-green-600";
+        msg.textContent = data.message || "変更しました";
+        ["pw-current","pw-new","pw-confirm"].forEach(id=>document.getElementById(id).value="");
       } else {
-        banner.classList.add("hidden");
+        msg.className = "text-xs text-red-500";
+        msg.textContent = data.detail || "変更に失敗しました";
       }
     }
 

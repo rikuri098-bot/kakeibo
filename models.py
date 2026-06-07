@@ -55,6 +55,23 @@ class Category:
 
 
 @dataclass
+class Budget:
+    """予算（カテゴリ別 or 全体合計）"""
+    id: str
+    category: str               # カテゴリ名 または 'total'（全体合計）
+    amount: int                 # 月の予算額（円）
+    month: str                  # 対象月（YYYY-MM）
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "category": self.category,
+                "amount": self.amount, "month": self.month}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Budget":
+        return _from_dict(cls, data)
+
+
+@dataclass
 class Shortcut:
     """よく使う支出のワンタップ・ショートカット"""
     id: str

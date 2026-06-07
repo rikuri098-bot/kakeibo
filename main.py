@@ -17,6 +17,8 @@ from routers.auth import auth_bp
 from routers.csv_import import csv_bp
 from routers.categories import categories_bp
 from routers.shortcuts import shortcuts_bp
+from routers.budgets import budgets_bp
+from routers.settings import settings_bp
 
 # ── Flask アプリ初期化 ────────────────────────────────────────
 app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -43,6 +45,8 @@ app.register_blueprint(expenses_bp)
 app.register_blueprint(csv_bp)
 app.register_blueprint(categories_bp)
 app.register_blueprint(shortcuts_bp)
+app.register_blueprint(budgets_bp)
+app.register_blueprint(settings_bp)
 
 
 @app.route("/")

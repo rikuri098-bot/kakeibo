@@ -8,9 +8,10 @@ expenses / categories / shortcuts の3テーブルを扱う。
 """
 import json
 import os
+import uuid
 import requests
 from typing import List
-from models import Expense, Category, Shortcut
+from models import Expense, Category, Shortcut, Budget
 
 # ── Supabase 接続設定 ──────────────────────────────────────────
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
@@ -23,6 +24,8 @@ FILES = {
     "expenses":   os.path.join(DATA_DIR, "expenses.json"),
     "categories": os.path.join(DATA_DIR, "categories.json"),
     "shortcuts":  os.path.join(DATA_DIR, "shortcuts.json"),
+    "budgets":    os.path.join(DATA_DIR, "budgets.json"),
+    "settings":   os.path.join(DATA_DIR, "settings.json"),
 }
 
 # JSONモード時のカテゴリ初期値（Supabase未使用の開発環境用）
@@ -64,6 +67,15 @@ def _sb_insert(table: str, obj: dict) -> dict:
 def _sb_update(table: str, row_id: str, obj: dict) -> dict:
     res = requests.patch(f"{SUPABASE_URL}/rest/v1/{table}",
                          headers=_sb_headers(), params={"id": f"eq.{row_id}"}, json=obj)
+    res.raise_for_status()
+    data = res.json()
+    return data[0] if isinstance(data, list) and data else {}
+
+
+def _sb_update_where(table: str, col: str, val: str, obj: dict) -> dict:
+    """主キーが id 以外（settings.key など）のテーブル用の更新"""
+    res = requests.patch(f"{SUPABASE_URL}/rest/v1/{table}",
+                         headers=_sb_headers(), params={col: f"eq.{val}"}, json=obj)
     res.raise_for_status()
     data = res.json()
     return data[0] if isinstance(data, list) and data else {}
@@ -240,3 +252,93 @@ def delete_shortcut(sc_id: str) -> bool:
         return False
     _json_save("shortcuts", new_rows)
     return True
+
+
+# ================================================================
+# 予算（budgets）
+# ================================================================
+def get_budgets(month: str) -> List[Budget]:
+    """指定月の予算一覧を取得する"""
+    if USE_SUPABASE:
+        rows = _sb_select("budgets", {
+            "select": "id,category,amount,month", "month": f"eq.{month}"})
+    else:
+        rows = [b for b in _json_load("budgets") if b.get("month") == month]
+    return [Budget.from_dict(r) for r in rows]
+
+
+def upsert_budget(category: str, amount: int, month: str) -> Budget:
+    """予算を設定・更新する（category+month が一致すれば更新、なければ追加）"""
+    if USE_SUPABASE:
+        existing = _sb_select("budgets", {
+            "select": "id", "category": f"eq.{category}", "month": f"eq.{month}"})
+        if existing:
+            _sb_update("budgets", existing[0]["id"], {"amount": amount})
+            return Budget(id=existing[0]["id"], category=category, amount=amount, month=month)
+        row = _sb_insert("budgets", {
+            "id": str(uuid.uuid4()), "category": category, "amount": amount, "month": month})
+        return Budget.from_dict(row)
+    # JSON
+    rows = _json_load("budgets")
+    for r in rows:
+        if r.get("category") == category and r.get("month") == month:
+            r["amount"] = amount
+            _json_save("budgets", rows)
+            return Budget.from_dict(r)
+    new = {"id": str(uuid.uuid4()), "category": category, "amount": amount, "month": month}
+    rows.append(new)
+    _json_save("budgets", rows)
+    return Budget.from_dict(new)
+
+
+def delete_budget(budget_id: str) -> bool:
+    if USE_SUPABASE:
+        return _sb_delete("budgets", budget_id)
+    rows = _json_load("budgets")
+    new_rows = [r for r in rows if r["id"] != budget_id]
+    if len(new_rows) == len(rows):
+        return False
+    _json_save("budgets", new_rows)
+    return True
+
+
+# ================================================================
+# 設定（settings）キーバリュー
+# ================================================================
+def get_setting(key: str):
+    """設定値を1件取得（なければ None）"""
+    if USE_SUPABASE:
+        rows = _sb_select("settings", {"select": "key,value", "key": f"eq.{key}"})
+        return rows[0]["value"] if rows else None
+    for s in _json_load("settings"):
+        if s.get("key") == key:
+            return s.get("value")
+    return None
+
+
+def get_all_settings() -> dict:
+    """全設定をdictで取得（パスワードハッシュは含めない）"""
+    if USE_SUPABASE:
+        rows = _sb_select("settings", {"select": "key,value"})
+    else:
+        rows = _json_load("settings")
+    return {r["key"]: r["value"] for r in rows if r.get("key") != "admin_password_hash"}
+
+
+def set_setting(key: str, value: str):
+    """設定値を保存（upsert）"""
+    if USE_SUPABASE:
+        existing = _sb_select("settings", {"select": "key", "key": f"eq.{key}"})
+        if existing:
+            _sb_update_where("settings", "key", key, {"value": value})
+        else:
+            _sb_insert("settings", {"key": key, "value": value})
+        return
+    rows = _json_load("settings")
+    for s in rows:
+        if s.get("key") == key:
+            s["value"] = value
+            _json_save("settings", rows)
+            return
+    rows.append({"key": key, "value": value})
+    _json_save("settings", rows)
