@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>家計簿アプリ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.2s ease-out; }
+
+    /* スマホでのタップ領域を確保 */
+    @media (max-width: 640px) {
+      .tap-target { min-height: 48px; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800">
+
+  <!-- ナビゲーションバー -->
+  <nav class="bg-white border-b border-gray-100 sticky top-0 z-10">
+    <div class="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">💰</span>
+        <span class="font-bold text-indigo-600 text-lg">家計簿</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- CSVインポートボタン -->
+        <label
+          for="csv-upload"
+          class="cursor-pointer flex items-center gap-1.5 text-sm text-gray-500
+                 hover:text-indigo-600 transition px-3 py-2 rounded-lg hover:bg-indigo-50
+                 tap-target"
+          title="PayPayカードCSVをインポート">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4m0 0l4-4m-4 4V4"/>
+          </svg>
+          <span class="hidden sm:inline">CSVインポート</span>
+        </label>
+        <input id="csv-upload" type="file" accept=".csv" class="hidden" onchange="importCSV(this)" />
+
+        <!-- ログアウトボタン -->
+        <a href="/logout"
+           class="flex items-center gap-1.5 text-sm text-gray-500
+                  hover:text-red-500 transition px-3 py-2 rounded-lg hover:bg-red-50
+                  tap-target">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none"
+               viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          </svg>
+          <span class="hidden sm:inline">ログアウト</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- メインコンテンツ -->
+  <div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- CSVインポート結果トースト -->
+    <div id="toast" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-50
+                           bg-gray-800 text-white text-sm px-5 py-3 rounded-full shadow-lg
+                           fade-in whitespace-nowrap">
+    </div>
+
+    <!-- ① 当月サマリー -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+      <!-- 合計カード -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">当月合計</p>
+        <p id="monthly-total" class="text-4xl font-bold text-indigo-600 mt-2">¥0</p>
+        <p id="monthly-label" class="text-xs text-gray-400 mt-1"></p>
+      </div>
+
+      <!-- カテゴリ別カード -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-3">カテゴリ別</p>
+        <ul id="category-summary" class="space-y-1.5 text-sm"></ul>
+      </div>
+    </section>
+
+    <!-- ② 支出入力フォーム（折りたたみ可） -->
+    <section class="bg-white rounded-2xl shadow-sm border border-gray-100">
+
+      <!-- フォームヘッダー（タップで開閉） -->
+      <button
+        onclick="toggleForm()"
+        class="w-full flex items-center justify-between px-5 py-4 text-left tap-target">
+        <span class="font-semibold text-gray-700">✏️ 支出を追加</span>
+        <svg id="form-chevron" xmlns="http://www.w3.org/2000/svg"
+             class="w-5 h-5 text-gray-400 transition-transform duration-200"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+
+      <!-- フォーム本体 -->
+      <div id="form-body" class="px-5 pb-5">
+        <form id="expense-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="date">日付</label>
+            <input id="date" type="date" required
+              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-300 tap-target" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="amount">金額（円）</label>
+            <input id="amount" type="number" min="1" placeholder="例: 1200" required
+              inputmode="numeric"
+              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-300 tap-target" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="category">カテゴリ</label>
+            <select id="category" required
+              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-300 tap-target">
+              <option value="">選択してください</option>
+              <option>食費</option><option>交通費</option><option>日用品</option>
+              <option>外食</option><option>娯楽</option><option>その他</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="payment_method">支払い方法</label>
+            <select id="payment_method" required
+              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-300 tap-target">
+              <option value="">選択してください</option>
+              <option>PayPay</option><option>クレジットカード</option>
+              <option>現金</option><option>その他</option>
+            </select>
+          </div>
+
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5" for="memo">メモ（任意）</label>
+            <input id="memo" type="text" placeholder="例: コンビニでランチ"
+              class="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+          </div>
+
+          <div class="sm:col-span-2">
+            <button type="submit"
+              class="w-full bg-indigo-500 hover:bg-indigo-600 active:scale-95
+                     text-white font-semibold py-3.5 rounded-xl transition-all text-sm tap-target">
+              追加する
+            </button>
+          </div>
+        </form>
+        <p id="form-error" class="mt-2 text-xs text-red-500 hidden"></p>
+      </div>
+    </section>
+
+    <!-- ③ 支出一覧 -->
+    <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-gray-700">📋 支出一覧</h2>
+        <span id="expense-count" class="text-xs text-gray-400"></span>
+      </div>
+      <div id="expense-list" class="space-y-2.5">
+        <p class="text-sm text-gray-400 text-center py-8 animate-pulse">読み込み中...</p>
+      </div>
+    </section>
+
+  </div><!-- /max-w -->
+
+  <script>
+    // ============================================================
+    // 定数・マッピング
+    // ============================================================
+    const CATEGORY_STYLE = {
+      "食費":   { color: "bg-green-100 text-green-700",   emoji: "🛒" },
+      "交通費": { color: "bg-blue-100 text-blue-700",     emoji: "🚃" },
+      "日用品": { color: "bg-yellow-100 text-yellow-700", emoji: "🧴" },
+      "外食":   { color: "bg-orange-100 text-orange-700", emoji: "🍜" },
+      "娯楽":   { color: "bg-purple-100 text-purple-700", emoji: "🎮" },
+      "その他": { color: "bg-gray-100 text-gray-600",     emoji: "📦" },
+    };
+    const PAYMENT_EMOJI = {
+      "PayPay": "🟡", "クレジットカード": "💳", "現金": "💴", "その他": "💰",
+    };
+
+    // ============================================================
+    // 初期化
+    // ============================================================
+    document.addEventListener("DOMContentLoaded", () => {
+      // 今日の日付をセット
+      document.getElementById("date").value = new Date().toISOString().slice(0, 10);
+      fetchAndRender();
+    });
+
+    // ============================================================
+    // データ取得・描画
+    // ============================================================
+    async function fetchAndRender() {
+      try {
+        const res = await fetch("/api/expenses");
+        if (res.status === 401) { location.href = "/login"; return; }
+        if (!res.ok) throw new Error();
+        const expenses = await res.json();
+        renderExpenseList(expenses);
+        renderSummary(expenses);
+      } catch {
+        document.getElementById("expense-list").innerHTML =
+          '<p class="text-sm text-red-400 text-center py-6">データ取得に失敗しました</p>';
+      }
+    }
+
+    function renderExpenseList(expenses) {
+      const el = document.getElementById("expense-list");
+      document.getElementById("expense-count").textContent =
+        expenses.length ? `全 ${expenses.length} 件` : "";
+
+      if (!expenses.length) {
+        el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">まだ支出データがありません</p>';
+        return;
+      }
+
+      el.innerHTML = expenses.map(e => {
+        const s = CATEGORY_STYLE[e.category] || CATEGORY_STYLE["その他"];
+        const pe = PAYMENT_EMOJI[e.payment_method] || "💰";
+        return `
+        <div class="flex items-center justify-between p-3 rounded-xl
+                    border border-gray-100 hover:bg-gray-50 transition fade-in">
+          <div class="flex items-start gap-3 min-w-0">
+            <span class="shrink-0 text-xs font-medium px-2 py-1 rounded-full mt-0.5 ${s.color}">
+              ${s.emoji} ${e.category}
+            </span>
+            <div class="min-w-0">
+              <p class="text-sm font-medium leading-snug truncate">
+                ${e.memo || "（メモなし）"}
+              </p>
+              <p class="text-xs text-gray-400 mt-0.5">
+                ${e.date} &nbsp;${pe} ${e.payment_method}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 ml-2">
+            <span class="text-sm font-bold text-gray-800">¥${e.amount.toLocaleString()}</span>
+            <button onclick="deleteExpense('${e.id}')"
+              class="w-7 h-7 flex items-center justify-center rounded-full
+                     text-gray-300 hover:text-red-400 hover:bg-red-50 transition"
+              aria-label="削除">✕</button>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function renderSummary(expenses) {
+      const now = new Date();
+      const ym  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+      const monthly = expenses.filter(e => e.date.startsWith(ym));
+      const total   = monthly.reduce((s, e) => s + e.amount, 0);
+
+      document.getElementById("monthly-total").textContent = `¥${total.toLocaleString()}`;
+      document.getElementById("monthly-label").textContent =
+        `${now.getFullYear()}年${now.getMonth()+1}月 / ${monthly.length}件`;
+
+      const byCategory = {};
+      for (const e of monthly) byCategory[e.category] = (byCategory[e.category]||0) + e.amount;
+
+      const ul = document.getElementById("category-summary");
+      const entries = Object.entries(byCategory).sort((a,b) => b[1]-a[1]);
+      if (!entries.length) {
+        ul.innerHTML = '<li class="text-xs text-gray-400">当月のデータなし</li>';
+        return;
+      }
+      // プログレスバー付き
+      const max = entries[0][1];
+      ul.innerHTML = entries.map(([cat, amt]) => {
+        const s = CATEGORY_STYLE[cat] || CATEGORY_STYLE["その他"];
+        const pct = Math.round(amt / max * 100);
+        return `<li class="space-y-0.5">
+          <div class="flex justify-between text-xs">
+            <span class="${s.color} px-1.5 rounded font-medium">${s.emoji} ${cat}</span>
+            <span class="font-semibold text-gray-700">¥${amt.toLocaleString()}</span>
+          </div>
+          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full bg-indigo-400 rounded-full" style="width:${pct}%"></div>
+          </div>
+        </li>`;
+      }).join("");
+    }
+
+    // ============================================================
+    // フォームの開閉
+    // ============================================================
+    let formOpen = true;
+    function toggleForm() {
+      formOpen = !formOpen;
+      const body    = document.getElementById("form-body");
+      const chevron = document.getElementById("form-chevron");
+      body.style.display    = formOpen ? "" : "none";
+      chevron.style.transform = formOpen ? "" : "rotate(-90deg)";
+    }
+
+    // ============================================================
+    // 支出追加
+    // ============================================================
+    document.getElementById("expense-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("form-error");
+      errEl.classList.add("hidden");
+
+      const body = {
+        date:           document.getElementById("date").value,
+        amount:         parseInt(document.getElementById("amount").value),
+        category:       document.getElementById("category").value,
+        payment_method: document.getElementById("payment_method").value,
+        memo:           document.getElementById("memo").value,
+      };
+
+      try {
+        const res = await fetch("/api/expenses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error((await res.json()).detail || "追加に失敗しました");
+        // フォームを部分リセット
+        document.getElementById("amount").value = "";
+        document.getElementById("category").value = "";
+        document.getElementById("payment_method").value = "";
+        document.getElementById("memo").value = "";
+        fetchAndRender();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove("hidden");
+      }
+    });
+
+    // ============================================================
+    // 支出削除
+    // ============================================================
+    async function deleteExpense(id) {
+      if (!confirm("この支出を削除しますか？")) return;
+      try {
+        const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("削除に失敗しました");
+        fetchAndRender();
+      } catch (err) { alert(err.message); }
+    }
+
+    // ============================================================
+    // CSVインポート
+    // ============================================================
+    async function importCSV(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+      input.value = ""; // 同じファイルを再選択できるようにリセット
+
+      showToast("CSVを処理中...", 0);
+      try {
+        const res = await fetch("/api/csv/import", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "インポート失敗");
+        showToast(`✅ ${data.message}`, 4000);
+        fetchAndRender();
+      } catch (err) {
+        showToast(`❌ ${err.message}`, 4000);
+      }
+    }
+
+    // ============================================================
+    // トースト通知
+    // ============================================================
+    let toastTimer = null;
+    function showToast(msg, duration = 3000) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.remove("hidden");
+      if (toastTimer) clearTimeout(toastTimer);
+      if (duration > 0) {
+        toastTimer = setTimeout(() => el.classList.add("hidden"), duration);
+      }
+    }
+  </script>
+
+</body>
+</html>

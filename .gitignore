@@ -1,0 +1,28 @@
+# 環境変数（APIキー・秘密情報）- 絶対にコミットしないこと
+.env
+
+# データ保存フォルダ（個人データ）
+data/
+
+# Pythonキャッシュ
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 仮想環境
+venv/
+.venv/
+env/
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Claude Code
+.claude/
