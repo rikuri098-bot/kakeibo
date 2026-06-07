@@ -5,7 +5,7 @@
 """
 import os
 from flask import Flask, send_from_directory, redirect, url_for
-from flask_login import LoginManager
+from flask_login import LoginManager, login_required
 from dotenv import load_dotenv
 
 # .envファイルから環境変数を読み込む（インポートより先に実行）
@@ -42,8 +42,9 @@ app.register_blueprint(csv_bp)
 
 
 @app.route("/")
+@login_required
 def index():
-    """トップページ（ログイン済みの場合のみ表示）"""
+    """トップページ（未ログイン時は自動で /login にリダイレクト）"""
     return send_from_directory("static", "index.html")
 
 
