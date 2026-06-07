@@ -1,0 +1,10 @@
+# Vercelにアップロードしないファイル
+.env
+data/
+__pycache__/
+*.pyc
+.git/
+.claude/
+setup_db.py
+supabase_setup.sql
+*.md
