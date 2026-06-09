@@ -4,6 +4,7 @@ dataclassでシンプルに管理する（Python 3.14対応・外部依存なし
 Supabaseが返す created_at など余分なカラムは from_dict で自動的に無視する。
 """
 from dataclasses import dataclass, fields
+from typing import Optional
 
 
 def _from_dict(cls, data: dict):
@@ -60,11 +61,12 @@ class Budget:
     id: str
     category: str               # カテゴリ名 または 'total'（全体合計）
     amount: int                 # 月の予算額（円）
-    month: str                  # 対象月（YYYY-MM）
+    month: Optional[str] = None # 対象月（YYYY-MM）。デフォルト予算は None
+    is_default: bool = False    # デフォルト予算かどうか
 
     def to_dict(self) -> dict:
-        return {"id": self.id, "category": self.category,
-                "amount": self.amount, "month": self.month}
+        return {"id": self.id, "category": self.category, "amount": self.amount,
+                "month": self.month, "is_default": self.is_default}
 
     @classmethod
     def from_dict(cls, data: dict) -> "Budget":

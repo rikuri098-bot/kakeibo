@@ -4,7 +4,7 @@
 アクセス: http://localhost:8000
 """
 import os
-from flask import Flask, send_from_directory, redirect, url_for
+from flask import Flask, send_from_directory, redirect, url_for, Response
 from flask_login import LoginManager, login_required
 from dotenv import load_dotenv
 
@@ -52,6 +52,21 @@ app.register_blueprint(settings_bp)
 def index():
     """トップページ（未ログイン時は自動で /login にリダイレクト）"""
     return send_from_directory("static", "index.html")
+
+
+# ── PWA（ホーム画面追加・オフライン最低限） ─────────────────────
+@app.route("/manifest.json")
+def manifest():
+    """PWAマニフェスト（ルート配信）"""
+    return send_from_directory("static", "manifest.json", mimetype="application/manifest+json")
+
+
+@app.route("/sw.js")
+def service_worker():
+    """Service Worker（ルートスコープで配信）"""
+    resp = send_from_directory("static", "sw.js", mimetype="application/javascript")
+    resp.headers["Service-Worker-Allowed"] = "/"
+    return resp
 
 
 # ── 起動 ──────────────────────────────────────────────────────

@@ -349,12 +349,13 @@ def delete_shortcut(user_id: str, sc_id: str) -> bool:
 
 
 # ================================================================
-# 予算（budgets）
+# 予算（budgets）— デフォルト予算(month=NULL)＋月次予算＋繰り越し対応
 # ================================================================
-def get_budgets(user_id: str, month: str) -> List[Budget]:
+def get_monthly_budgets(user_id: str, month: str) -> List[Budget]:
+    """指定月に明示的に設定された月次予算のみ"""
     if USE_SUPABASE:
         rows = _sb_select("budgets", {
-            "select": "id,category,amount,month",
+            "select": "id,category,amount,month,is_default",
             "user_id": f"eq.{user_id}", "month": f"eq.{month}"})
     else:
         rows = [b for b in _json_load("budgets")
@@ -362,27 +363,91 @@ def get_budgets(user_id: str, month: str) -> List[Budget]:
     return [Budget.from_dict(r) for r in rows]
 
 
-def upsert_budget(user_id: str, category: str, amount: int, month: str) -> Budget:
+def get_default_budgets(user_id: str) -> List[Budget]:
+    """デフォルト予算（month=NULL）のみ"""
     if USE_SUPABASE:
-        existing = _sb_select("budgets", {
-            "select": "id", "user_id": f"eq.{user_id}",
-            "category": f"eq.{category}", "month": f"eq.{month}"})
+        rows = _sb_select("budgets", {
+            "select": "id,category,amount,month,is_default",
+            "user_id": f"eq.{user_id}", "month": "is.null"})
+    else:
+        rows = [b for b in _json_load("budgets")
+                if b.get("user_id") == user_id and not b.get("month")]
+    return [Budget.from_dict(r) for r in rows]
+
+
+def get_effective_budget_map(user_id: str, month: str) -> dict:
+    """月次予算があればそれ、なければデフォルト予算を適用した {category: amount}"""
+    eff = {b.category: b.amount for b in get_default_budgets(user_id)}
+    for b in get_monthly_budgets(user_id, month):
+        eff[b.category] = b.amount
+    return eff
+
+
+def _prev_month(month: str) -> str:
+    y, m = int(month[:4]), int(month[5:7])
+    m -= 1
+    if m == 0:
+        y -= 1; m = 12
+    return f"{y}-{m:02d}"
+
+
+def get_effective_budgets(user_id: str, month: str, carryover: bool = False) -> dict:
+    """
+    指定月の実効予算を返す。
+    返り値: {"map": {category: amount}, "carryover": int}
+    carryover=True の場合、全体予算(total)に前月の余り/超過を加減算する。
+    """
+    eff = get_effective_budget_map(user_id, month)
+    carry = 0
+    if carryover and "total" in eff:
+        prev = _prev_month(month)
+        prev_map = get_effective_budget_map(user_id, prev)
+        prev_total = prev_map.get("total")
+        if prev_total is not None:
+            prev_spent = sum(e.amount for e in get_all_expenses(user_id)
+                             if str(e.date).startswith(prev))
+            carry = prev_total - prev_spent
+            eff["total"] = eff["total"] + carry
+    return {"map": eff, "carryover": carry}
+
+
+def upsert_budget(user_id: str, category: str, amount: int,
+                  month: Optional[str], is_default: bool = False) -> Budget:
+    month_val = None if is_default else month
+    if USE_SUPABASE:
+        flt = {"user_id": f"eq.{user_id}", "category": f"eq.{category}",
+               "month": ("is.null" if is_default else f"eq.{month_val}")}
+        existing = _sb_select("budgets", {"select": "id", **flt})
         if existing:
             _sb_update("budgets",
                 {"id": f"eq.{existing[0]['id']}", "user_id": f"eq.{user_id}"}, {"amount": amount})
-            return Budget(id=existing[0]["id"], category=category, amount=amount, month=month)
+            return Budget(id=existing[0]["id"], category=category, amount=amount,
+                          month=month_val, is_default=is_default)
         row = _sb_insert("budgets", {
-            "id": str(uuid.uuid4()), "user_id": user_id,
-            "category": category, "amount": amount, "month": month})
+            "id": str(uuid.uuid4()), "user_id": user_id, "category": category,
+            "amount": amount, "month": month_val, "is_default": is_default})
         return Budget.from_dict(row)
     rows = _json_load("budgets")
     for r in rows:
-        if r.get("user_id") == user_id and r.get("category") == category and r.get("month") == month:
+        if r.get("user_id") == user_id and r.get("category") == category and r.get("month") == month_val:
             r["amount"] = amount; _json_save("budgets", rows); return Budget.from_dict(r)
-    new = {"id": str(uuid.uuid4()), "user_id": user_id,
-           "category": category, "amount": amount, "month": month}
+    new = {"id": str(uuid.uuid4()), "user_id": user_id, "category": category,
+           "amount": amount, "month": month_val, "is_default": is_default}
     rows.append(new); _json_save("budgets", rows)
     return Budget.from_dict(new)
+
+
+def delete_budget_by_category(user_id: str, category: str, month: Optional[str], is_default: bool):
+    """カテゴリ＋月（またはデフォルト）に一致する予算を削除する"""
+    if USE_SUPABASE:
+        flt = {"user_id": f"eq.{user_id}", "category": f"eq.{category}",
+               "month": ("is.null" if is_default else f"eq.{month}")}
+        _sb_delete("budgets", flt)
+        return
+    rows = _json_load("budgets")
+    mv = None if is_default else month
+    _json_save("budgets", [r for r in rows if not (
+        r.get("user_id") == user_id and r.get("category") == category and r.get("month") == mv)])
 
 
 def delete_budget(user_id: str, budget_id: str) -> bool:

@@ -15,6 +15,7 @@ settings_bp = Blueprint("settings", __name__, url_prefix="/api/settings")
 DEFAULTS = {
     "always_show_remaining": "false",
     "notify_threshold": "20",
+    "budget_carryover": "none",   # none / total
 }
 
 
@@ -44,6 +45,10 @@ def update_settings():
                 db.set_setting(current_user.id, "notify_threshold", str(th))
         except (TypeError, ValueError):
             pass
+    if "budget_carryover" in body:
+        val = body["budget_carryover"]
+        db.set_setting(current_user.id, "budget_carryover",
+                       "total" if val == "total" else "none")
     return jsonify({"ok": True})
 
 
