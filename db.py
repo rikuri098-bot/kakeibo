@@ -404,10 +404,13 @@ def get_effective_budgets(user_id: str, month: str, carryover: bool = False) -> 
         prev_map = get_effective_budget_map(user_id, prev)
         prev_total = prev_map.get("total")
         if prev_total is not None:
-            prev_spent = sum(e.amount for e in get_all_expenses(user_id)
-                             if str(e.date).startswith(prev))
-            carry = prev_total - prev_spent
-            eff["total"] = eff["total"] + carry
+            # 前月の支出記録を取得（バグ修正②：前月の支出が0件なら繰り越さない）
+            prev_expenses = [e for e in get_all_expenses(user_id)
+                             if str(e.date).startswith(prev)]
+            if prev_expenses:  # 前月に支出が1件以上ある場合のみ繰り越し計算
+                prev_spent = sum(e.amount for e in prev_expenses)
+                carry = prev_total - prev_spent
+                eff["total"] = eff["total"] + carry
     return {"map": eff, "carryover": carry}
 
 

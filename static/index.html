@@ -1080,10 +1080,12 @@
         const d = await (await fetch("/api/budgets/default")).json();
         defaultBudgetMap = {}; for (const b of (d.budgets||[])) defaultBudgetMap[b.category]=b.amount;
       } catch { monthEffectiveMap = {}; defaultBudgetMap = {}; }
-      document.getElementById("budget-is-default").checked = false;
+      // バグ修正①：デフォルト予算が存在する場合はチェックをオン＆デフォルト金額を表示
+      const hasDefault = Object.keys(defaultBudgetMap).length > 0;
+      document.getElementById("budget-is-default").checked = hasDefault;
       setCarryoverRadios(appSettings.budget_carryover);
       updateBudgetTargetLabel();
-      renderSettingsBudgetInputs(monthEffectiveMap);
+      renderSettingsBudgetInputs(hasDefault ? defaultBudgetMap : monthEffectiveMap);
       showSheetStatic("settings-modal");
     }
     function closeSettingsModal(){ document.getElementById("settings-modal").classList.add("hidden"); }
