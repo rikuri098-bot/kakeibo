@@ -108,7 +108,12 @@ def get_user_by_username(username: str) -> Optional[dict]:
     if USE_SUPABASE:
         rows = _sb_select("users", {
             "select": "id,username,password_hash,display_name", "username": f"eq.{username}"})
-        return rows[0] if rows else None
+        # 照合順序差異による誤マッチを防ぐため Python 側で完全一致のみ採用
+        # （日本語：平仮名/カタカナ/全角半角/大小を確実に別物として比較する）
+        for r in rows:
+            if r.get("username") == username:
+                return r
+        return None
     for u in _json_load("users"):
         if u.get("username") == username:
             return u

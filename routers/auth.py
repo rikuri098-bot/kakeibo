@@ -41,10 +41,9 @@ def register_page():
 
 @auth_bp.post("/register")
 def register_post():
-    username     = (request.form.get("username") or "").strip()
-    display_name = (request.form.get("display_name") or "").strip()
-    password     = request.form.get("password") or ""
-    confirm      = request.form.get("confirm") or ""
+    username = (request.form.get("username") or "").strip()
+    password = request.form.get("password") or ""
+    confirm  = request.form.get("confirm") or ""
 
     # バリデーション
     error = None
@@ -61,11 +60,10 @@ def register_post():
 
     if error:
         flash(error, "error")
-        return render_template("register.html",
-                               username=username, display_name=display_name), 400
+        return render_template("register.html", username=username), 400
 
-    # ユーザー作成（デフォルトカテゴリも自動作成される）＋自動ログイン
-    user = db.create_user(username, hash_password(password), display_name or username)
+    # ユーザー作成（表示名はユーザー名と同じ・デフォルトカテゴリも自動作成）＋自動ログイン
+    user = db.create_user(username, hash_password(password), username)
     login_user(User.from_dict(user), remember=True)
     return redirect(url_for("index"))
 
